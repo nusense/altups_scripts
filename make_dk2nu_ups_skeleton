@@ -1,0 +1,438 @@
+#! /usr/bin/env bash
+# create a skeleton UPS setup for dk2nu
+#
+b0=`basename $0`
+export HERE=`pwd`
+#
+###############################################################################
+# some defaults
+###############################################################################
+export PRODUCT="dk2nu"
+export VERSION="test"
+export QUALIFIER="e4:debug"
+export FLAVOR=""
+
+export VERBOSE=0
+export REQUIREGENIE=1
+export ALLOWQUALMISMATCH=0
+export ISTEST=0
+
+# checking out from SVN
+# true/on, false/off, ssh - last allows commits
+export CHECKOUT="true"   
+##export SVNSSH="svn+ssh://p-nusoftart@cdcvs.fnal.gov/cvs/projects"
+##export SVNPUB="http://cdcvs.fnal.gov/subversion"
+##export SVNBASE="nusoftsvn/trunk/nutools"
+export SVNSSH="svn+ssh://p-dk2nu@cdcvs.fnal.gov/cvs/projects"
+export SVNPUB="http://cdcvs.fnal.gov/subversion"
+export SVNBASE="dk2nu/trunk"
+export FULLSVNPATH=""
+#
+export DEPENDPRD="genie"  # or 'root'
+export DEPENDVER="<not-specified>"
+export DEPENDQUAL="<not-specified>"
+export GCCSETUP="native"
+#
+export showusage=0
+export showpurpose=0
+export showconfig=0
+export doexit=-1
+
+###############################################################################
+# usage function
+###############################################################################
+purpose() {
+  echo " " >&2
+  echo "Purpose:  Create a skeleton UPS area for a version of $PRODUCT" >&2
+  echo "  * Assumes $b0 is run from UPS area <path>/$PRODUCT" >&2
+  echo "    where <path> is in \$PRODUCTS" >&2
+  echo "  * Assumes that ROOT has been setup [optionally also GENIE]" >&2
+  echo "  * Assumes GCC has been setup if not native" >&2
+}
+usage() {
+  echo " " >&2
+  echo "Usage:  $b0 [options] <version> <ups-qualifier>" >&2
+  echo "  -h | --help        this message and quit" >&2
+  echo "  -t | --test        don't perform actual actions" >&2
+  echo "  -v | --verbose     increase verbosity" >&2
+  echo "  --show-config      show the configuration" >&2
+  echo "  --no-genie         assume GENIE isn't required" >&2
+  echo "  --qual-mismatch    allow GENIE/ROOT qualifier to be different" >&2
+  echo "  --checkout[=<val>] do SVN checkout [$CHECKOUT]" >&2
+  echo "                        [true]/false - do/don't attempt SVN checkout"  >&2
+  echo "                        ssh          - checkout w/ write privs" >&2
+}
+current_config() {
+  echo " " >&2
+  echo "Current Settings: PRODUCT=$PRODUCT" >&2
+  echo "<version>='${VERSION}'"     >&2
+  echo "<qualifier>='${QUALIFIER}'" >&2
+  echo "<flavor>='${FLAVOR}'"       >&2
+  echo "ISTEST=${ISTEST} VERBOSE=${VERBOSE}" >&2
+  echo "PRODUCTS=${PRODUCTS}"       >&2
+  echo "SVN CHECKOUT=${CHECKOUT}"   >&2
+  if [ "$CHECKOUT" != "false" ]; then
+    echo "FULLSVNPATH=" >&2
+    echo "  ${FULLSVNPATH}" >&2
+  fi
+  echo "will setup $DEPENDPRD $DEPENDVER -q $DEPENDQUAL" >&2
+  if [ "$GCCSETUP" != "native" ]; then
+    echo "will setup gcc $GCCSETUP"
+  fi
+  which gcc >&2
+  gcc --version | head -1 >&2
+}
+
+###############################################################################
+# helper functions
+###############################################################################
+OUTRED='\e[0;31m'
+OUTGREEN='\e[0;32m'
+OUTNOC='\e[0m' # No Color
+#echo -e "${OUTRED}Hello Stack${OUTNOC}"
+err_red() {
+  echo -n -e "${OUTRED}" >&2
+}
+err_nocolor() {
+  echo -n -e "${OUTNOC}" >&2
+}
+
+sortqual()
+{
+  # alphabetize the qual components, remove trailing ":"
+  echo $1 | tr ":" "\n" | sort | tr "\n" ":" | sed -e "s/:$//"
+}
+
+check_cwd() {
+  # ensure that the product matches the current directory
+  PRDDIR=`basename $HERE`
+  if [ "$PRDDIR" != "$PRODUCT" ]; then
+    echo " " >&2
+    err_red
+    echo "$b0: HEY? working in '$PRDDIR' but skeleton for product '$PRODUCT'?" >&2
+    err_nocolor
+    showusage=1
+    doexit=2
+  fi
+}
+
+check_upsloc() {
+  # ensure that UPS has been enabled for this location
+  # (otherwise other steps might not work) and that the subdir matches product
+  LOCALDB=`dirname $HERE`
+  isthere=`echo $PRODUCTS | grep -c $LOCALDB`
+  # echo "isthere='${isthere}' LOCALDB=$LOCALDB"
+  if [ $isthere -lt 1 ]; then
+    echo " " >&2
+    err_red
+    echo "$b0: HEY? working in " >&2
+    echo "  $HERE " >&2
+    echo "but base path not listed in \$PRODUCTS" >&2
+    echo "     \$PRODUCTS=${PRODUCTS}" >&2
+    echo "that is unlikely to end happily ... so I'll stop here"
+    err_nocolor
+  showpurpose=1
+  showusage=1
+  doexit=3
+  fi
+}
+
+check_depend() {
+  # which gcc ... if dependent on UPS version it should be setup already
+  if [ -n $"SETUP_GCC" ]; then
+    GCCSETUP=`echo ${SETUP_GCC} | tr -s ' ' | cut -d' ' -f2`
+    GCCTABLELINE="setupRequired( gcc ${GCCSETUP} )"
+  else
+    GCCTABLELINE="# using native compiler (not recommended)"
+  fi
+
+  # this depends on either ROOT or GENIE (and thus implicitly ROOT)
+  if [ $REQUIREGENIE -gt 0 ]; then
+    DEPEND_SETUP="$SETUP_GENIE"
+    DEPENDPRD="genie"
+  else
+    DEPEND_SETUP="$SETUP_ROOT"
+    DEPENDPRD="root"
+  fi
+  good_depend=1
+  if [ -z "${DEPEND_SETUP}" ]; then
+    good_depend=0
+  else
+    DEPENDVER=`echo ${DEPEND_SETUP} | tr -s ' ' | cut -d' ' -f2`
+    DEPENDQUAL=`echo ${DEPEND_SETUP} | tr -s ' ' | cut -d' ' -f8`
+  fi
+  # check for qualifier mismatch
+  if [ $ALLOWQUALMISMATCH -eq 0 ]; then
+    prdqual=`sortqual $QUALIFIER`
+    depqual=`sortqual $DEPENDQUAL`
+    if [ "$prdqual" != "$depqual" ]; then
+      echo " " >&2
+      err_red
+      echo "$b0: HEY? mismatch qualifiers" >&2
+      echo "  $PRODUCT $QUALIFIER vs. $DEPENDPRD $DEPENDQUAL" >&2
+      err_nocolor
+      good_depend=0
+    fi
+  fi
+  if [ ${good_depend} -eq 0 ]; then
+    echo " " >&2
+    err_red
+    echo "$b0: HEY? dependency should require '${DEPENDPRD}'" >&2
+    echo "  but that has not been properly setup at this point" >&2
+    err_nocolor
+    showpurpose=1
+    showusage=1
+    doexit=4
+  fi
+
+}
+
+###############################################################################
+# process script args function
+###############################################################################
+#  longarg "::" means optional arg, if not supplied given as null string
+process_args() {
+
+  opterr=/tmp/getopt.err.$$
+
+  TEMP=`getopt -n $b0 -s bash -a \
+      --longoptions="help test verbose no-genie qual-mismatch-ok \
+                     flavor: show-config checkout:: product: " \
+      -o htvf -- "$@" 2> $opterr `
+  getoptstat=$?
+  eval set --"${TEMP}"
+
+  dohelp=0
+  if [ $getoptstat -ne 0 ]; then
+    showusage=1
+    doexit=1
+    err_red
+    echo " " >&2
+    cat $opterr >&2
+    err_nocolor
+  fi
+  rm $opterr
+
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      "--"               ) shift; break                 ;;
+#      -h | --help        ) showusage=1; showpurpose=1; doexit=0 ;;
+      -h | --help        ) dohelp=1                     ;;
+      -t | --test        ) ISTEST=1                     ;;
+      -v | --verbose     ) let VERBOSE=${VERBOSE}+1     ;;
+      -f | --flavor      ) FLAVOR="$2"; shift           ;;
+      --show-config      ) showconfig=1                 ;;
+      --no-genie         ) REQUIREGENIE=0               ;;
+      --qual-mismatch-ok ) ALLOWQUALMISMATCH=1          ;;
+      --checkout         ) 
+        # optional parameter, if unset returns "" ... take that as true
+        CHECKOUTOPT=$2; shift;
+        case "$CHECKOUTOPT" in 
+          ""                                          ) CHECKOUT="true"  ;;
+          true  | TRUE  | True  | on  | ON  | On  | 1 ) CHECKOUT="true"  ;;
+          false | FALSE | False | off | OFF | Off | 0 ) CHECKOUT="false" ;;
+          ssh                                         ) CHECKOUT="ssh"   ;;
+          *                                           )
+             err_red
+             echo " " >&2
+             echo "$b0: --checkout flag '$CHECKOUTOPT' unrecognizable" >&2 
+             echo " " >&2
+             showusage=1
+             doexit=1
+             err_nocolor
+             ;;
+        esac
+        ;;
+      --product          ) PRODUCT=$2; shift            ;;
+    esac
+    shift # eat up this arg
+  done
+
+  if [ $dohelp -ne 0 ]; then
+    doexit=0
+    showpurpose=1
+    showusage=1
+  else
+    # should be two positional parameters, the VERSION and QUALIFIER
+    VERSION=$1
+    QUALIFIER=$2
+    if [ $# -ne 2 ]; then
+      err_red
+      echo " " >&2
+      if [ $# -eq 0 ]; then
+        echo "$b0: missing <version> and <qualifier> parameters" >&2
+      else
+        echo "$b0: missing <qualifier> parameter" >&2
+      fi
+      echo " " >&2
+      err_nocolor
+      doexit=1
+      showusage=1
+      showconfig=1
+    fi
+  fi
+
+}
+
+###############################################################################
+# main program
+###############################################################################
+
+process_args "$@"
+
+# put together SVN path
+case $CHECKOUT in
+  true  ) FULLSVNPATH=${SVNPUB}/${SVNBASE}/${PRODUCT} ;;
+  ssh   ) FULLSVNPATH=${SVNSSH}/${SVNBASE}/${PRODUCT} ;;
+  false ) FULLSVNPATH="no-checkout" ;;
+esac
+
+if [ $VERBOSE -gt 0 ]; then
+  echo -e "${OUTGREEN}...done process_args ... start checks ${OUTNOC}"
+fi
+
+check_cwd
+check_upsloc
+check_depend
+
+# flavor still unset?
+if [ -z "$FLAVOR" ]; then
+  FLAVOR=`ups flavor` # for now follow "genie"
+fi
+
+if [ $VERBOSE -gt 0 ]; then
+  echo -e "${OUTGREEN}...cross-checks complete${OUTNOC}"
+fi
+
+# print help/config after parsing everything so that we can see what got set
+if [ $showpurpose -gt 0 ]; then purpose ; fi
+if [ $showusage   -gt 0 ]; then usage   ; fi
+if [ $showconfig  -gt 0 ]; then current_config ; fi
+echo " " >&2
+
+if [ $doexit -ge 0 ]; then 
+  exit $doexit
+fi
+
+if [ $VERBOSE -gt 0 ]; then
+  echo -e "${OUTGREEN}...start processing${OUTNOC}"
+fi
+#
+#
+
+# odd case for .version file if NULL, examples have trailing _
+FLAVORVF=${FLAVOR}
+if [ "$FLAVOR" == "NULL" ]; then FLAVORVF="NULL_"; fi
+if [ -z "$FLAVOR" ]; then 
+  echo "FLAVOR was null -- can not proceed"
+  exit
+fi
+
+QPATH=`echo $QUALIFIER | tr ":" "-" `
+
+#echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+echo "prepare to generate ups framework for"
+echo "   setup ${PRODUCT} ${VERSION} -f ${FLAVOR} -q ${QUALIFIER}"
+#echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+
+for p in ${VERSION}/${FLAVOR}/${QPATH}/ups \
+         ${VERSION}.version
+do
+  if [ ! -d $p ]; then mkdir -p $p; fi
+done
+
+tableFile=${VERSION}/${FLAVOR}/${QPATH}/ups/${PRODUCT}.table
+versionFile=${VERSION}.version/${FLAVORVF}
+
+#
+# create the table file
+#
+cat > ${tableFile} <<EOF
+File=Table
+Product=${PRODUCT}
+#*************************************************
+# Starting Group definition
+
+Group:
+
+Flavor=${FLAVOR}
+Qualifiers="${QUALIFIER}"
+
+Common:
+   Action=setup
+      proddir()
+      setupenv()
+      setupRequired( ${DEPENDPRD}  ${DEPENDVER} -q ${DEPENDQUAL} )
+      ${GCCTABLELINE}
+      envSet(DK2NU, \${UPS_PROD_DIR}/dk2nu)
+      pathAppend(LD_LIBRARY_PATH, \${UPS_PROD_DIR}/dk2nu/lib)
+      pathAppend(PATH, \${UPS_PROD_DIR}/dk2nu/bin)
+
+End:
+# End Group definition
+#*************************************************
+EOF
+
+#
+# create the version file, if it doesn't exist
+#
+if [ ! -f ${versionFile} ]; then
+cat > ${versionFile} <<EOF
+FILE = version
+PRODUCT = ${PRODUCT}
+VERSION = ${VERSION}
+
+#*************************************************
+EOF
+fi
+
+iam=`whoami`
+if [ "$iam" == "nusoft" ]; then
+  altiam=`klist | grep "Default principal" | cut -d':' -f2 | cut -d'@' -f1 | tr -d ' ' `
+  if [ -n "$altiam" ]; then
+    iam=${altiam}
+    echo "i am \"${iam}\""
+  fi
+fi
+nowGMT=`date -u "+%Y-%m-%d %H:%M:%S"`
+
+nf=`grep QUALIFIERS ${versionFile} | grep -c \"${QUALIFIER}\"`
+if [ $nf -ne 0 ]; then
+  echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+  echo "${versionFile} already has an entry for \"${QUALIFIER}\""
+  echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+else
+#
+# add this version to the version file
+#
+cat >> ${versionFile} <<EOF
+#
+FLAVOR = ${FLAVOR}
+QUALIFIERS   = "${QUALIFIER}"
+  DECLARER   = ${iam}
+  DECLARED   = ${nowGMT} GMT
+  MODIFIER   = ${iam}
+  MODIFIED   = ${nowGMT} GMT
+  PROD_DIR   = ${PRODUCT}/${VERSION}/${FLAVOR}/${QPATH}
+  UPS_DIR    = ups
+  TABLE_FILE = ${PRODUCT}.table
+#
+#*************************************************
+EOF
+fi
+
+# optional checkout
+if [ "$CHECKOUT" == "true" -o "$CHECKOUT" == "ssh" ]; then
+  # alias/function doesn't carry into sub-shell
+  # setup dk2nu $VERSION -f $FLAVOR -q $QUALIFIER
+  # setup == source `$UPS_DIR/bin/ups setup <args>`
+  #     'ups setup' creates a script that must be sourced
+  source `${UPS_DIR}/bin/ups setup dk2nu $VERSION -f $FLAVOR -q $QUALIFIER`
+  cd $DK2NU_DIR
+  echo "starting checkout, currently in:"
+  echo "   `pwd`"
+  echo svn checkout $FULLSVNPATH > svn.checkout.log 2>&1
+  svn checkout $FULLSVNPATH > svn.checkout.log 2>&1
+fi
+
+# end-of-script

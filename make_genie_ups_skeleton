@@ -1,0 +1,553 @@
+#! /usr/bin/env bash
+#
+b0=`basename $0`
+export HERE=`pwd`
+export PRODUCT=genie
+export VERSION=""   # UPS version name e.g. my280alt
+export QUALIFIER="" # UPS qualifer flags e.g. e5:debug
+export SVNREV=""    # SVN tag or revision e.g. HEAD, R-2_8_0 or 3665
+export SVNFULLPATH="no-checkout"
+export SVNUSER=`who am i | cut -d' ' -f1`
+export CHECKOUT="yes"
+export FLAVOR=`ups flavor -2`    # 
+export VERBOSE=0
+
+export showusage=0
+export showconfig=0
+export doexit=-1
+export istest=0
+
+##############################################################################
+usage() {
+# direct to syserr not sysout
+cat >&2 <<EOF
+
+Purpose:  Create a skeleton UPS area for a version of "$PRODUCT"
+
+Assumes ${b0} is run from UPS area <path>/$PRODUCT
+If configuration flags are not explicitly set for ancillary products
+(ROOT, LHAPDF, pythia6, libxml2, log4cpp, gcc) UPS setup versions will
+be taken from the current environment.
+
+Usage: ${b0} [flags] <version> <qualifier> <svnrev>
+  -h | --help     this message and quit
+  -v | --verbose  increase verbosity
+  -f | --flavor   override default flavor   [${FLAVOR}]
+  -t | --test     quit after config parsing
+  --gcc="<ups-setup-string>"                ["${gcc_ups_setup}"]
+  --root="<ups-setup-string>"               ["${root_ups_setup}"]
+  --pythia="<ups-setup-string>"             ["${pythia_ups_setup}"]
+  --lhapdf="<ups-setup-string>"             ["${lhapdf_ups_setup}"]
+  --libxml2="<ups-setup-string>"            ["${libxml2_ups_setup}"]
+  --log4cpp="<ups-setup-string>"            ["${log4cpp_ups_setup}"]
+  --checkout[=<val>]  do SVN checkout
+                      [true]/false
+                       ssh (needs write privs)  # not yet supported
+  --svn-user=<username>                     [${SVNUSER}]
+  --show-config
+EOF
+}
+
+##############################################################################
+current_config() {
+# direct to syserr not sysout
+cat >&2 <<EOF
+
+Current Settings for "${PRODUCT}":
+  <version>   "${VERSION}"
+  <qualifier> "${QUALIFIER}"
+  <svnrev>    "${SVNREV}"
+  checkout    ($CHECKOUT) using $SVNFULLPATH
+Dependencies:
+  gcc     ${gcc_ups_setup}
+  root    ${root_ups_setup}
+  pythia  ${pythia_ups_setup}
+  lhapdf  ${lhapdf_ups_setup}
+  libxml2 ${libxml2_ups_setup}
+  log4cpp ${log4cpp_ups_setup}
+EOF
+}
+
+##############################################################################
+#
+# unpack setup info for auxillary products
+#
+trim_setup()
+{
+  # assume a particular order in SETUP_XYZZY for -f and -z flags
+  # this returns something like:  "root v5_34_18a -q debug:e5:nu"
+  printenv SETUP_$1 | tr -s ' ' | cut -d' ' -f2,7,8
+}
+
+export gcc_ups_setup=`trim_setup GCC`
+export root_ups_setup=`trim_setup ROOT`
+export pythia_ups_setup=`trim_setup PYTHIA`
+export lhapdf_ups_setup=`trim_setup LHAPDF`
+export libxml2_ups_setup=`trim_setup LIBXML2`
+export log4cpp_ups_setup=`trim_setup LOG4CPP`
+
+###############################################################################
+# helper functions
+###############################################################################
+OUTRED='\e[0;31m'
+OUTGREEN='\e[0;32m'
+OUTNOC='\e[0m' # No Color
+#echo -e "${OUTRED}Hello Stack${OUTNOC}"
+err_red() {
+  echo -n -e "${OUTRED}" >&2
+}
+err_nocolor() {
+  echo -n -e "${OUTNOC}" >&2
+}
+
+sortqual()
+{
+  # alphabetize the qual components, remove trailing ":"
+  echo $1 | tr ":" "\n" | sort | tr "\n" ":" | sed -e "s/:$//"
+}
+
+check_cwd() {
+  # ensure that the product matches the current directory
+  PRDDIR=`basename $HERE`
+  if [ "$PRDDIR" != "$PRODUCT" ]; then
+    echo " " >&2
+    err_red
+    echo "$b0: HEY? working in '$PRDDIR' but skeleton for product '$PRODUCT'?" >&2
+    err_nocolor
+    showusage=1
+    doexit=2
+  fi
+}
+
+check_upsloc() {
+  # ensure that UPS has been enabled for this location
+  # (otherwise other steps might not work) and that the subdir matches product
+  LOCALDB=`dirname $HERE`
+  isthere=`echo $PRODUCTS | grep -c $LOCALDB`
+  # echo "isthere='${isthere}' LOCALDB=$LOCALDB"
+  if [ $isthere -lt 1 ]; then
+    echo " " >&2
+    err_red
+    echo "$b0: HEY? working in " >&2
+    echo "  $HERE " >&2
+    echo "but base path not listed in \$PRODUCTS" >&2
+    echo "     \$PRODUCTS=${PRODUCTS}" >&2
+    echo "that is unlikely to end happily ... so I'll stop here" >&2
+    echo "try (perhaps): " >&2
+    ALTUPSPATH=`dirname $HERE`
+    echo "   export PRODUCTS=${ALTUPSPATH}:${PRODUCTS}" >&2
+    err_nocolor
+  showusage=1
+  doexit=3
+  fi
+}
+
+check_depend() {
+  # which gcc ... if dependent on UPS version it should be setup already
+  if [ -n "${gcc_ups_setup}" ]; then
+    GCCTABLELINE="setupRequired( gcc ${gcc_ups_setup} )"
+  else
+    GCCTABLELINE="# using native compiler (not recommended)"
+    err_red
+    echo "$b0: HEY? $GCCTABLELINE" >&2
+    err_nocolor
+  fi
+
+# for now ... don't do this
+#  # this depends on either ROOT or GENIE (and thus implicitly ROOT)
+#  if [ $REQUIREGENIE -gt 0 ]; then
+#    DEPEND_SETUP="$SETUP_GENIE"
+#    DEPENDPRD="genie"
+#  else
+#    DEPEND_SETUP="$SETUP_ROOT"
+#    DEPENDPRD="root"
+#  fi
+#  good_depend=1
+#  if [ -z "${DEPEND_SETUP}" ]; then
+#    good_depend=0
+#  else
+#    DEPENDVER=`echo ${DEPEND_SETUP} | tr -s ' ' | cut -d' ' -f2`
+#    DEPENDQUAL=`echo ${DEPEND_SETUP} | tr -s ' ' | cut -d' ' -f8`
+#  fi
+#  # check for qualifier mismatch
+#  if [ $ALLOWQUALMISMATCH -eq 0 ]; then
+#    prdqual=`sortqual $QUALIFIER`
+#    depqual=`sortqual $DEPENDQUAL`
+#    if [ "$prdqual" != "$depqual" ]; then
+#      echo " " >&2
+#      err_red
+#      echo "$b0: HEY? mismatch qualifiers" >&2
+#      echo "  $PRODUCT $QUALIFIER vs. $DEPENDPRD $DEPENDQUAL" >&2
+#      err_nocolor
+#      good_depend=0
+#    fi
+#  fi
+#  if [ ${good_depend} -eq 0 ]; then
+#    echo " " >&2
+#    err_red
+#    echo "$b0: HEY? dependency should require '${DEPENDPRD}'" >&2
+#    echo "  but that has not been properly setup at this point" >&2
+#    err_nocolor
+#    showusage=1
+#    doexit=4
+#  fi
+
+}
+
+###############################################################################
+# process script args function
+###############################################################################
+#  longarg "::" means optional arg, if not supplied given as null string
+process_args() {
+
+  opterr=/tmp/getopt.err.$$
+
+  TEMP=`getopt -n $b0 -s bash -a \
+      --longoptions="help verbose test flavor: checkout:: \
+                     svn-user: qual-mismatch-ok show-config \
+                     gcc: root: pythia: lhapdf: libxml2: log4cpp: " \
+      -o htvf -- "$@" 2> $opterr `
+  getoptstat=$?
+  eval set --"${TEMP}"
+
+  dohelp=0
+  if [ $getoptstat -ne 0 ]; then
+    showusage=1
+    doexit=1
+    err_red
+    echo " " >&2
+    cat $opterr >&2
+    err_nocolor
+  fi
+  rm $opterr
+
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      "--"               ) shift; break                 ;;
+      -h | --help        ) dohelp=1                     ;;
+      -v | --verbose     ) let VERBOSE=${VERBOSE}+1     ;;
+      -t | --test        ) let istest=1                 ;;
+      --show-config      ) showconfig=1                 ;;
+      --checkout         ) 
+        # optional parameter, if unset returns "" ... take that as true
+        export checkoutopt=$2; shift;
+        if [ $VERBOSE -gt 0 ]; then 
+          echo -e "${OUTGREEN} checkoutopt=${checkoutopt} ${OUTNOC}"
+        fi
+        case "$checkoutopt" in 
+          ""                                          ) CHECKOUT="true"  ;;
+          true  | TRUE  | True  | on  | ON  | On  | 1 ) CHECKOUT="true"  ;;
+          yes   | YES   | Yes                         ) CHECKOUT="true"  ;;
+          false | FALSE | False | off | OFF | Off | 0 ) CHECKOUT="false" ;;
+          no    | NO    | No                          ) CHECKOUT="false" ;;
+          ssh                                         ) CHECKOUT="ssh"   ;;
+          *                                           )
+             err_red
+             echo " " >&2
+             echo "$b0: --checkout flag '$CHECKOUTOPT' unrecognizable" >&2 
+             echo " " >&2
+             showusage=1
+             doexit=1
+             err_nocolor
+             ;;
+        esac
+        ;;
+      --svn-user      ) SVNUSER="$2"           ; shift ;;
+      --gcc           ) gcc_ups_setup="$2"     ; shift ;;
+      --root          ) root_ups_setup="$2"    ; shift ;;
+      --pythia        ) pythia_ups_setup="$2"  ; shift ;;
+      --lhapdf        ) lhapdf_ups_setup="$2"  ; shift ;;
+      --libxml2       ) libxml2_ups_setup="$2" ; shift ;;
+      --log4cpp       ) log4cpp_ups_setup="$2" ; shift ;;
+    esac
+    shift # eat up this arg
+  done
+
+  if [ $dohelp -ne 0 ]; then
+    doexit=0
+    showusage=1
+  else
+    # should be at least two positional parameters, the VERSION and QUALIFIER
+    # in all cases except CHECKOUT=false there should be SVNREV
+    VERSION=$1
+    QUALIFIER=$2
+    SVNREV=$3
+    nexpect=3
+    expectargs="<version>, <qualifier> and/or <svnrev>"
+    if [ "${CHECKOUT}" == "false" ]; then 
+      nexpect=2
+      expectargs="<version> and/or <qualifier>"
+    fi
+    if [ $VERBOSE -gt 0 ]; then 
+     echo -e "${OUTGREEN} narg=$# nexpect=$nexpect CHECKOUT=${CHECKOUT} ${OUTNOC}"
+    fi
+    if [ $# -lt $nexpect ]; then
+      err_red
+      echo " " >&2
+      echo "$b0: " >&2
+      echo "  missing ${expectargs} parameters" >&2
+      echo " " >&2
+      err_nocolor
+      doexit=1
+      showusage=1
+      showconfig=1
+    fi
+  fi
+
+}
+
+setfullsvnpath() {
+# build URL for checkout (possibly w/ -r flag)
+# svn co http://genie.hepforge.org/svn/trunk local_directory 
+# svn co http://genie.hepforge.org/svn/branches/genie_tag local_directory 
+# svn co svn+ssh://username@svn.hepforge.org/hepforge/svn/genie/trunk local_directory 
+  if [ "${CHECKOUT}" == "false" ]; then return ; fi
+  if [ "${CHECKOUT}" == "ssh"   ]; then
+     # special case for writablility
+    SVNFULLPATH="svn+ssh://${SVNUSER}@svn.hepforge.org/hepforge/svn/genie"
+  else
+    SVNFULLPATH="http://genie.hepforge.org/svn"
+  fi
+  # now decide HEAD or branch; all digits = revision # off trunk
+  nondigits=`echo $SVNREV | tr -d '[0-9]'`
+  SVNSUB="blah"
+  if [ -z "$nondigits" ]; then 
+    SVNSUB="trunk -r $SVNREV"
+  elif [ "$SVNREV" == "HEAD" -o "$SVNREV" == "trunk" ]; then
+    SVNSUB="trunk"
+  else
+    # check if this might be a branch
+    svntaglist=/tmp/svntaglist.$$
+    # some branches hidden from normal users
+    HTTP="http"
+    if [ "$CHECKOUT" == "ssh" ]; then HTTP="https" ; fi
+    svn list ${HTTP}://genie.hepforge.org/svn/branches | \
+             tr -d '/' > ${svntaglist}
+
+    found=`grep -c ${SVNREV} ${svntaglist}`
+    if [ $found -eq 1 ]; then
+      SVNSUB="branches/$SVNREV"
+    else
+      err_red
+      echo "<svnrev> \"$SVNREV\" seems to be neither a revision #, a known branch or trunk" >&2
+      echo "try one of: " >&2
+      echo "trunk" >&2
+      cat $svntaglist >&2
+      err_nocolor
+      exit 2
+    fi
+  fi
+  SVNFULLPATH="${SVNFULLPATH}/${SVNSUB}"
+  if [ $VERBOSE -gt 0 ]; then 
+    echo -e "${OUTGREEN} SVNFULLPATH=${SVNFULLPATH} found=$found nondigits=$nondigits ${OUTNOC}"
+  fi
+
+}
+
+###############################################################################
+# main program
+###############################################################################
+
+process_args "$@"
+
+setfullsvnpath $SVNREV
+
+if [ $VERBOSE -gt 0 ]; then
+  echo -e "${OUTGREEN}...done process_args ... start checks ${OUTNOC}"
+fi
+
+check_cwd
+check_upsloc
+check_depend
+
+# flavor still unset?
+if [ -z "$FLAVOR" ]; then
+  FLAVOR=`ups flavor -2` # for now follow "genie"
+fi
+
+if [ $VERBOSE -gt 0 ]; then
+  echo -e "${OUTGREEN}...cross-checks complete${OUTNOC}"
+fi
+
+# print help/config after parsing everything so that we can see what got set
+if [ $showusage   -gt 0 ]; then usage   ; fi
+if [ $showconfig  -gt 0 ]; then current_config ; fi
+echo " " >&2
+
+if [ $doexit -ge 0 ]; then 
+  exit $doexit
+fi
+
+if [ $VERBOSE -gt 0 ]; then
+  echo -e "${OUTGREEN}...start processing${OUTNOC}"
+fi
+#
+
+##############################################################################
+
+#echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+#echo "prepare to generate ups framework for"
+#echo "   setup ${PRODUCT} ${VERSION} -f ${FLAVOR} -q ${QUALIFIER}"
+#echo "will checkout $SVNFULLPATH "
+#echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+if [ "$istest" -ne 0 ]; then
+  current_config
+  echo "istest - early exit" >&2
+  exit 1
+fi
+
+HERE=`pwd`
+
+qualnocolon=`echo ${QUALIFIER} | tr ':' '-' `
+flvqual="${FLAVOR}-${qualnocolon}"
+svntop=GENIE_${VERSION}
+
+for p in ${VERSION}/ups \
+         ${VERSION}/${flvqual} \
+         ${VERSION}/${flvqual}/include \
+         ${VERSION}.version
+do
+  if [ ! -d $p ]; then mkdir -p $p; fi
+done
+
+# 
+# check out GENIE from the repository
+#
+if [ "$CHECKOUT" != "false" ]; then
+  cd ${VERSION}/${flvqual}
+  if [ ! -d ${svntop} ]; then
+    echo "SVN check out of GENIE might take a while ... please be patient"
+    echo svn co ${SVNFULLPATH} ${svntop}
+         svn co ${SVNFULLPATH} ${svntop} > ${svntop}.svn_checkout_log
+    if [ ! -d ${svntop} ]; then
+      echo "YIKES:  failed to check out release ... exit early"
+      exit
+    fi
+  else
+    echo "it appears GENIE is already checked out from SVN"
+    echo "if you need it update you'll have to do that by hand"
+  fi
+fi
+
+INSIDE=${HERE}/${VERSION}/${flvqual}/${svntop}
+if [ -d $INSIDE ]; then
+  cd $INSIDE
+  if [ ! -d lib ]; then mkdir lib ; fi
+  if [ ! -d bin ]; then mkdir bin ; fi
+fi
+cd ${HERE}/${VERSION}/${flvqual}
+if [ ! -L genie_build_nusoft.sh ]; then ln -s ../../genie_build_nusoft.sh . ; fi
+if [ ! -L lib ]; then ln -s ${svntop}/lib . ; fi
+if [ ! -L bin ]; then ln -s ${svntop}/bin . ; fi
+
+cd $HERE
+
+tableFile=${VERSION}/ups/${PRODUCT}.table
+versionFile=${VERSION}.version/${FLAVOR}-${qualnocolon}
+
+#
+# create the table file
+#
+if [ $VERBOSE -gt 0 ]; then
+  echo -e "${OUTGREEN}...create table file${OUTNOC}"
+fi
+cat > ${tableFile} <<EOF
+File=Table
+PRODUCT=${PRODUCT}
+#*************************************************
+# Starting Group definition
+
+Group:
+
+  Flavor=${FLAVOR}
+  Qualifiers="${QUALIFIER}"
+
+  # Can't assume root, pythia, lhapdf, libxml2, log4cpp and gcc
+  # associated with the base release are still there after 
+  # setting up this product because it will clear dependent
+  # products unless one uses the "-j" option
+  # The following setups won't work if one uses the -z <upsdbdir>
+  # option unless that installation has all the products
+  # (that's the way that -z works)
+  #
+  # To avoid [un]setting up dependencies use:
+  #    setup ${PRODUCT} ${VERSION} -j -q ${QUALIFIER} -z <upsdb>
+  #
+
+  Action = ExtraSetup
+     ${GCCTABLELINE}
+     setupRequired( root    ${root_ups_setup} )
+     setupRequired( pythia  ${pythia_ups_setup} )
+     setupRequired( lhapdf  ${lhapdf_ups_setup} )
+     setupRequired( libxml2 ${libxml2_ups_setup} )
+     setupRequired( log4cpp ${log4cpp_ups_setup} )
+
+Common:
+   Action=setup
+      setupEnv()
+      prodDir()
+      envSet(GENIE_FQ,\${UPS_PROD_FLAVOR}-${qualnocolon})
+      envSet(GENIE,\${UPS_PROD_DIR}/\${GENIE_FQ}/${svntop})
+      prodDir( _INC, \${GENIE_FQ}/include )
+      prodDir( _LIB, \${GENIE_FQ}/lib )
+      pathPrepend( LD_LIBRARY_PATH, \${UPS_PROD_DIR}/\${GENIE_FQ}/lib )
+      pathPrepend( PATH, \${UPS_PROD_DIR}/\${GENIE_FQ}/bin )
+      exeActionRequired(ExtraSetup)
+
+End:
+# End Group definition
+#*************************************************
+EOF
+
+#
+# create the version file, if it doesn't exist
+#
+if [ ! -f ${versionFile} ]; then
+if [ $VERBOSE -gt 0 ]; then
+  echo -e "${OUTGREEN}...create version file${OUTNOC}"
+fi
+cat > ${versionFile} <<EOF
+FILE = version
+PRODUCT = ${PRODUCT}
+VERSION = ${VERSION}
+
+#*************************************************
+EOF
+fi
+
+iam=`whoami`
+if [ "$iam" == "nusoft" ]; then
+  altiam=`klist | grep "Default principal" | cut -d':' -f2 | cut -d'@' -f1 | tr -d ' ' `
+  if [ -n "$altiam" ]; then
+    iam=${altiam}
+    echo "i am \"${iam}\""
+  fi
+fi
+nowGMT=`date -u "+%Y-%m-%d %H:%M:%S"`
+
+nf=`grep QUALIFIERS ${versionFile} | grep -c \"${QUALIFIER}\"`
+if [ $nf -ne 0 ]; then
+  echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+  echo "${versionFile} already has an entry for \"${QUALIFIER}\""
+  echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+else
+#
+# add this version to the version file
+#
+cat >> ${versionFile} <<EOF
+#
+FLAVOR = ${FLAVOR}
+QUALIFIERS   = "${QUALIFIER}"
+  DECLARER   = ${iam}
+  DECLARED   = ${nowGMT} GMT
+  MODIFIER   = ${iam}
+  MODIFIED   = ${nowGMT} GMT
+  PROD_DIR   = ${PRODUCT}/${VERSION}
+  UPS_DIR    = ups
+  TABLE_FILE = ${PRODUCT}.table
+#
+#*************************************************
+EOF
+fi
+
+# end-of-script

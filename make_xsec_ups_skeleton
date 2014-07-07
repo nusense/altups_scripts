@@ -1,0 +1,116 @@
+#! /usr/bin/env bash
+#
+# create a skeleton UPS setup for genie_xsec
+#
+#
+product="genie_xsec"
+version=""      # like v3665
+flavor="NULL"   # x-sec file don't depend on OS flavor
+qual="default"  # use something else for special cases (modified MA, etc)
+
+if [ -z "$1" ]; then
+  echo "You must supply a version"
+  exit
+fi
+version=$1
+
+if [ -n "$2" ]; then qual="$2"; fi
+
+# odd case for .version file if NULL, examples have trailing _
+flavorvf=${flavor}
+if [ "$flavor" == "NULL" ]; then flavorvf="NULL_"; fi
+
+
+#echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+echo "prepare to generate ups framework for"
+echo "   setup ${product} ${version} -f ${flavor} -q ${qual}"
+#echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+
+for p in ${version}/${flavor}/${qual}/ups \
+         ${version}/${flavor}/${qual}/data \
+         ${version}.version
+do
+  if [ ! -d $p ]; then mkdir -p $p; fi
+done
+
+tableFile=${version}/${flavor}/${qual}/ups/${product}.table
+versionFile=${version}.version/${flavorvf}
+
+#
+# create the table file
+#
+cat > ${tableFile} <<EOF
+File=Table
+Product=${product}
+#*************************************************
+# Starting Group definition
+
+Group:
+
+Flavor=${flavor}
+Qualifiers="${qual}"
+
+Common:
+   Action=setup
+      proddir()
+      setupenv()
+      envSet(GENIEXSECPATH, \${UPS_PROD_DIR}/data)
+      # GSPLOAD should find it in GXMLPATH for newer versions of GENIE
+      # but specify full path just in case
+      envSet(GENIEXSECFILE, \${UPS_PROD_DIR}/data/gxspl-NuMIsmall.xml)
+      pathPrepend(GXMLPATH, \${UPS_PROD_DIR}/data)
+
+End:
+# End Group definition
+#*************************************************
+EOF
+
+#
+# create the version file, if it doesn't exist
+#
+if [ ! -f ${versionFile} ]; then
+cat > ${versionFile} <<EOF
+FILE = version
+PRODUCT = ${product}
+VERSION = ${version}
+
+#*************************************************
+EOF
+fi
+
+iam=`whoami`
+if [ "$iam" == "nusoft" ]; then
+  altiam=`klist | grep "Default principal" | cut -d':' -f2 | cut -d'@' -f1 | tr -d ' ' `
+  if [ -n "$altiam" ]; then
+    iam=${altiam}
+    echo "i am \"${iam}\""
+  fi
+fi
+nowGMT=`date -u "+%Y-%m-%d %H:%M:%S"`
+
+nf=`grep QUALIFIERS ${versionFile} | grep -c \"${qual}\"`
+if [ $nf -ne 0 ]; then
+  echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+  echo "${versionFile} already has an entry for \"${qual}\""
+  echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+else
+#
+# add this version to the version file
+#
+cat >> ${versionFile} <<EOF
+#
+FLAVOR = ${flavor}
+QUALIFIERS   = "${qual}"
+  DECLARER   = ${iam}
+  DECLARED   = ${nowGMT} GMT
+  MODIFIER   = ${iam}
+  MODIFIED   = ${nowGMT} GMT
+  PROD_DIR   = ${product}/${version}/${flavor}/${qual}
+  UPS_DIR    = ups
+  TABLE_FILE = ${product}.table
+#
+#*************************************************
+EOF
+fi
+
+# end-of-script

@@ -1,0 +1,56 @@
+#! /usr/bin/env bash
+# (checkout and) build dk2nu package
+#
+#  * Assumes that 'dk2nu' has been checked out and that we're sitting in
+#    the directory above it.
+#      + If using UPS then $DK2NU_DIR should point to the right place
+#        and this script is invoked via:   ../../../make_dk2nu_build
+#  * Assumes that GENIE (and thus ROOT) or just ROOT have been setup
+#  * $ROOTSYS must point to the ROOT area
+#  * If building against GENIE then $GENIE should point to the top of
+#    the GENIE directory structure checked out from SVN
+#  * Assumes that if using a 'gcc' other than the native one, it has been setup
+#  * Assumes 'cmake' is available  (e.g. setup cmake )
+
+#
+b0=`basename $0`
+export HERE=`pwd`
+#
+#
+whichcm=`which cmake 2>/dev/null`
+cstatus=$?
+if [ $cstatus -ne 0 ]; then
+  echo "cmake not available?"
+  exit 1
+fi
+echo "using $whichcm"
+
+if [ ! -d dk2nu ]; then
+  echo "dk2nu directory not found?  did you check it out from SVN?"
+  exit 1
+fi
+
+if [ "$1" == "NOGENIE" ]; then
+  GENIEOPT="-DWITH_GENIE=OFF"
+fi
+if [ "$1" == "USEGCC" ]; then
+  COMPILEROPT="-DCMAKE_CXX_COMPILER=`which g++` -DCMAKE_C_COMPILER=`which gcc`"
+fi
+
+
+export DK2NU_DIR=${HERE}
+export DK2NU=${DK2NU_DIR}/dk2nu
+
+mkdir dk2nu-build
+cd $HERE/dk2nu-build
+CMD="cmake ${COMPILEROPT} ${GENIEOPT} -DCMAKE_INSTALL_PREFIX:PATH=$DK2NU ../dk2nu"
+echo $CMD
+     $CMD
+gmake all install
+
+cd $HERE
+#rm -r dk2nu-build
+
+
+#
+# end-of-script

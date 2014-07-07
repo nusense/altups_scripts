@@ -1,0 +1,55 @@
+#! /usr/bin/env bash
+#
+# create the UserPhysicsOptions.xml for this version of GENIE
+#
+# need both "genie" and "genie_phyopt" setup (and consistent)
+#
+# e.g.
+#    setup genie        v3665 -q e2:debug
+#    setup genie_phyopt v3665 -q dkcharmtau
+#    cd $GENIEPHYOPTPATH
+#    ./make_dkcharmtau_phyopt
+#
+
+# cross check for sanity
+#
+geniev=`echo ${SETUP_GENIE} | cut -d' ' -f2`
+phyoptv=`echo ${SETUP_GENIE_PHYOPT} | cut -d' ' -f2`
+
+force=0
+if [ "$1" == "force" ]; then
+  force=1
+fi
+
+echo "versions: genie \"${geniev}\"  genie_phyopt \"${phyoptv}\""
+if [ ${force} -eq 0 ]; then
+  if [ "${geniev}" != "${phyoptv}" ]; then
+    echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+    echo "versions don't match ... will not proceed"
+    echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+    exit
+  fi
+fi
+
+phyoptfile=UserPhysicsOptions.xml
+sedscript=dkcharmtau.sed
+
+if [ -f ${phyoptfile} ]; then
+  echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+  echo "${phyoptfile} already exists ... will not proceed"
+  echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+  exit
+fi
+ 	
+echo "** create ${phyoptfile} w/ charm + tau decay **"
+touch ${sedscript}
+echo "/DecayParticleWithCode=4[0-9][0-9]\"/s%false%true %" >> ${sedscript}
+echo "/DecayParticleWithCode=4[0-9][0-9][0-9]\"/s%false%true %" >> ${sedscript}
+echo "/DecayParticleWithCode=-4[0-9][0-9]\"/s%false%true %" >> ${sedscript}
+echo "/DecayParticleWithCode=-4[0-9][0-9][0-9]\"/s%false%true %" >> ${sedscript}
+echo "/DecayParticleWithCode=15\"/s%false%true %" >> ${sedscript}
+echo "/DecayParticleWithCode=-15\"/s%false%true %" >> ${sedscript}
+
+sed -f ${sedscript} ${GENIE}/config/${phyoptfile} > ${phyoptfile}
+
+# end-of-script
