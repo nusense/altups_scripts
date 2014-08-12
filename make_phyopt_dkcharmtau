@@ -9,17 +9,71 @@
 #    setup genie_phyopt v3665 -q dkcharmtau
 #    cd $GENIEPHYOPTPATH
 #    ./make_dkcharmtau_phyopt
+#         --force
+#         --docharm=[0|1]
+#         --dotau=[0|1]
 #
+
+b0=`basename $0`
+docharm=1
+dotau=1
+force=0
+dohelp=0
+
+TEMP=`getopt -n $b0 -s bash -a \
+    --longoptions="help force charm: tau:" \
+    -o h -- "$@" `
+eval set -- "${TEMP}"
+while [ $# -gt 0 ]; do
+  case "$1" in
+    "--"               ) shift;      break ;;
+    -h | --help        ) dohelp=1          ;;
+    --force            ) force=1           ;;
+    --charm            ) docharm=$2; shift ;;
+    --tau              ) dotau=$2;   shift ;;
+  esac
+  shift # eat up this arg
+done
+
+if [ $dohelp -ne 0 ]; then
+  cat >&2 <<EOF
+
+Purpose: create a UserPhysicsOptions.xml that forces the
+         decay of charm and/or tau particles in GENIE
+
+Usage: ${b0} [flags]
+  -h | --help       this message and quit
+  --force           allow version skew
+  --charm=[0|1]     GENIE does charm hadron decay [$docharm]
+  --tau=[0|1]       GENIE does charm hadron decay [$tau]
+
+EOF
+  exit 0
+fi
+
+export ISTRUEVAL=0
+istrue() {
+  case "$1" in 
+    true  | TRUE  | True  | on  | ON  | On  | 1 ) ISTRUEVAL=1  ;;
+    yes   | YES   | Yes                         ) ISTRUEVAL=1  ;;
+    false | FALSE | False | off | OFF | Off | 0 ) ISTRUEVAL=0  ;;
+    no    | NO    | No                          ) ISTRUEVAL=0  ;;
+    *) echo "\"$1\" is not a legal true/false value, default to false"
+       ISTRUEVAL=0 ;;
+  esac
+}
+
+# regularize user supplied values
+istrue $docharm
+docharm=$ISTRUEVAL
+istrue $dotau
+dotau=$ISTRUEVAL
 
 # cross check for sanity
 #
 geniev=`echo ${SETUP_GENIE} | cut -d' ' -f2`
 phyoptv=`echo ${SETUP_GENIE_PHYOPT} | cut -d' ' -f2`
 
-force=0
-if [ "$1" == "force" ]; then
-  force=1
-fi
 
 echo "versions: genie \"${geniev}\"  genie_phyopt \"${phyoptv}\""
 if [ ${force} -eq 0 ]; then
@@ -40,15 +94,31 @@ if [ -f ${phyoptfile} ]; then
   echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
   exit
 fi
- 	
-echo "** create ${phyoptfile} w/ charm + tau decay **"
+
+if [ $docharm -eq 1 -a $dotau -eq 1 ]; then
+  WHATDK="charm + tau"
+elif [ $docharm -eq 1 ]; then
+  WHATDK="only charm"
+elif [ $dotau -eq 1 ]; then
+  WHATDK="only tau"
+else
+  WHATDK="nothing special"
+fi
+
+echo "** create ${phyoptfile} w/ ${WHATDK} decay **"
 touch ${sedscript}
-echo "/DecayParticleWithCode=4[0-9][0-9]\"/s%false%true %" >> ${sedscript}
-echo "/DecayParticleWithCode=4[0-9][0-9][0-9]\"/s%false%true %" >> ${sedscript}
-echo "/DecayParticleWithCode=-4[0-9][0-9]\"/s%false%true %" >> ${sedscript}
-echo "/DecayParticleWithCode=-4[0-9][0-9][0-9]\"/s%false%true %" >> ${sedscript}
-echo "/DecayParticleWithCode=15\"/s%false%true %" >> ${sedscript}
-echo "/DecayParticleWithCode=-15\"/s%false%true %" >> ${sedscript}
+
+echo "/<global_param_list>/a<!-- force ${WHATDK} decay in GENIE -->" >>${sedscript}
+if [ $docharm -eq 1 ]; then
+  echo "/DecayParticleWithCode=4[0-9][0-9]\"/s%false%true %" >> ${sedscript}
+  echo "/DecayParticleWithCode=4[0-9][0-9][0-9]\"/s%false%true %" >> ${sedscript}
+  echo "/DecayParticleWithCode=-4[0-9][0-9]\"/s%false%true %" >> ${sedscript}
+  echo "/DecayParticleWithCode=-4[0-9][0-9][0-9]\"/s%false%true %" >> ${sedscript}
+fi
+if [ $dotau -eq 1 ]; then
+  echo "/DecayParticleWithCode=15\"/s%false%true %" >> ${sedscript}
+  echo "/DecayParticleWithCode=-15\"/s%false%true %" >> ${sedscript}
+fi
 
 sed -f ${sedscript} ${GENIE}/config/${phyoptfile} > ${phyoptfile}
 
