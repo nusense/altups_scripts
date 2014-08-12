@@ -208,7 +208,7 @@ process_args() {
                      gcc: root: pythia: lhapdf: libxml2: log4cpp: " \
       -o htvf -- "$@" 2> $opterr `
   getoptstat=$?
-  eval set --"${TEMP}"
+  eval set -- "${TEMP}"
 
   dohelp=0
   if [ $getoptstat -ne 0 ]; then
