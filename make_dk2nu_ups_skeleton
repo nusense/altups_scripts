@@ -51,7 +51,7 @@ purpose() {
 }
 usage() {
   echo " " >&2
-  echo "Usage:  $b0 [options] <version> <ups-qualifier>" >&2
+  echo "Usage:  $b0 [options] <ups-version> <ups-qualifier> [svn-tag]" >&2
   echo "  -h | --help        this message and quit" >&2
   echo "  -t | --test        don't perform actual actions" >&2
   echo "  -v | --verbose     increase verbosity" >&2
@@ -253,10 +253,10 @@ process_args() {
     showpurpose=1
     showusage=1
   else
-    # should be two positional parameters, the VERSION and QUALIFIER
+    # should be at least two positional parameters, the VERSION and QUALIFIER
     VERSION=$1
     QUALIFIER=$2
-    if [ $# -ne 2 ]; then
+    if [ $# -lt 2 ]; then
       err_red
       echo " " >&2
       if [ $# -eq 0 ]; then
@@ -269,6 +269,29 @@ process_args() {
       doexit=1
       showusage=1
       showconfig=1
+    fi
+    if [ $# -eq 3 ]; then
+      export SVNBASE="dk2nu/tags/$3"
+      svntaglist=/tmp/svntaglist.$$
+      svn list ${SVNPUB}/dk2nu/tags | tr -d '/' > ${svntaglist}
+      svntags=`cat ${svntaglist}`
+      found=0
+      for t in $svntags
+      do
+        if [ "$t" == "$3" ]; then found=1; fi
+      done
+      if [ $found -eq 1 ]; then
+        echo -e "${OUTGREEN} using tag $3 ${OUTNOC}" >&2
+      else
+        err_red
+        echo " " >&2
+        echo "$b0: tag $3 not found in SVN ${SVNPUB}/dk2nu/tags:"
+        cat $svntaglist
+        echo " " >&2
+        err_nocolor
+        doexit=1
+        showconfig=1
+      fi
     fi
   fi
 
