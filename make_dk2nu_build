@@ -43,10 +43,25 @@ export DK2NU=${DK2NU_DIR}/dk2nu
 
 mkdir dk2nu-build
 cd $HERE/dk2nu-build
-CMD="cmake ${COMPILEROPT} ${GENIEOPT} -DCMAKE_INSTALL_PREFIX:PATH=$DK2NU ../dk2nu"
+
+arch=`uname -s`
+if [ "$arch" == "Darwin" ]; then
+  MACEXTRA="env CC=gcc CXX=g++ FC=gfortran"
+fi
+CMD="${MACEXTRA} cmake ${COMPILEROPT} ${GENIEOPT} -DCMAKE_INSTALL_PREFIX:PATH=$DK2NU ../dk2nu"
 echo $CMD
      $CMD
 gmake all install
+
+if [ "$arch" == "Darwin" ]; then
+# for now install_name_tool seems to be a problem on mac os x
+  cd $HERE
+  cp dk2nu-build/lib/libdk2nu* dk2nu/lib/
+fi
+
+
+
+genie -b -q "$DK2NU/scripts/load_dk2nu.C(true,true,true)"
 
 cd $HERE
 #rm -r dk2nu-build
