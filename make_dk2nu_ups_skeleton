@@ -271,6 +271,10 @@ process_args() {
       showconfig=1
     fi
     if [ $# -eq 3 ]; then
+      if [ "$3" == "trunk" -o "$3" == "HEAD" ]; then
+        # do nothing
+        echo "$b0: tag $3 specified, using \"trunk\"" >&2
+      else
       export SVNBASE="dk2nu/tags/$3"
       svntaglist=/tmp/svntaglist.$$
       svn list ${SVNPUB}/dk2nu/tags | tr -d '/' > ${svntaglist}
@@ -292,6 +296,7 @@ process_args() {
         doexit=1
         showconfig=1
       fi
+      fi # not trunk/HEAD
     fi
   fi
 
@@ -320,7 +325,7 @@ check_depend
 
 # flavor still unset?
 if [ -z "$FLAVOR" ]; then
-  FLAVOR=`ups flavor` # for now follow "genie"
+  FLAVOR=`ups flavor -2` # for now follow "genie"
 fi
 
 if [ $VERBOSE -gt 0 ]; then
