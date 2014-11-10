@@ -8,15 +8,13 @@ if [ "x${GENIE_DIR}" == "x" ] ; then
 fi
 
 usage() {
-  echo "Usage: ${whatami}           " >&2
-  echo "   -c: clean                " >&2
-  echo "   -C: configure            " >&2
-  echo "   -l: make log4cpp         " >&2
-  echo "   -m: make genie           " >&2
-  echo "   -f: calc freenuc splines " >&2
-  echo "   -e: calc element splines " >&2
-  echo "   -s: combine splines      " >&2
-  echo "   -v: verbose              " >&2
+  echo "Usage: ${whatami}              " >&2
+  echo "   -c:    clean                " >&2
+  echo "   -C:    configure            " >&2
+  echo "   -m:    make genie           " >&2
+  echo "   -v:    verbose              " >&2
+  echo "   --vle: enable-vle           " >&2
+  echo "   --vhe: enable-vhe           " >&2
   return 1
 }
 
@@ -25,32 +23,30 @@ here=`pwd`
 
 doclean=no
 doconfig=no
-dolog4cpp=no
 domake=no
-dofreenuc=no
-doelements=no
-docombine=no
 verbose=no
+dovle=no
+dovhe=no
 
-TEMP=`getopt -n ${whatami} -s bash -- ?hcClmfesv "$@"`
+TEMP=`getopt -n ${whatami} -s bash -a --longoptions="help clean config make vle vhe" -o ?hcClmfesv -- "$@"`
 if [ $? != 0 ] ; then
   echo "Usage: ${whatami} [-c] [-C] " >&2
 fi
 eval set -- "${TEMP}"
+unset TEMP
 for o
 do
   case "$o" in
-    -h) usage ; exit ;;
-    -c) doclean=yes;    shift;;
-    -C) doconfig=yes;   shift;;
-    -l) dolog4cpp=yes;  shift;;
-    -m) domake=yes;     shift;;
-    -f) dofreenuc=yes;  shift;;
-    -e) doelements=yes; shift;;
-    -s) docombine=yes;  shift;;
-    -v) verbose=yes;    shift;;
-    --) shift; break;;
+    -h | --help   ) usage ; exit ;;
+    -c | --clean  ) doclean=yes  ;;
+    -C | --config ) doconfig=yes ;;
+    -m | --make   ) domake=yes   ;;
+    -v            ) verbose=yes  ;;
+    --vle         ) dovle=yes    ;;
+    --vhe         ) dovhe=yes    ;;
+    --            ) shift ; break;;
   esac
+  shift # eat the arg we just processed
 done
 
 if [ "$verbose" == "yes" ]; then
@@ -59,8 +55,7 @@ else
   ECHOCMD="# echo"
 fi
 
-echo doclean=${doclean} doconfig=${doconfig} dolog4cpp=${dolog4cpp} domake=${domake}
-echo dofreenuc=${dofreenuc} doelements=${doelements} docombine=${docombine}
+echo doclean=${doclean} doconfig=${doconfig} domake=${domake}
 
 eval $ECHOCMD cd `dirname $GENIE`
 cd `dirname $GENIE`
@@ -107,7 +102,12 @@ export LOG4CPP_LIB=${LOG4CPP_FQ_DIR}/lib
 #   cfg="$cfg --enable-lowlevel-mesg"
    cfg="$cfg --disable-lowlevel-mesg"
 #   cfg="$cfg --enable-nuvalidator --enable-neugen"
-#   cfg="$cfg --enable-vhe-extension --enable-vle-extension"
+   if [[ "x${dovle}" == "xyes" ]] ; then
+     cfg="$cfg--enable-vle-extension"
+   fi
+   if [[ "x${dovhe}" == "xyes" ]] ; then
+     cfg="$cfg --enable-vhe-extension"
+   fi
    cfg="$cfg --disable-gibuu --enable-flux-drivers --enable-geom-drivers"
 #   cfg="$cfg --enable-doxygen --enable-test --enable-viewer"
    cfg="$cfg --enable-mueloss"
@@ -115,9 +115,9 @@ export LOG4CPP_LIB=${LOG4CPP_FQ_DIR}/lib
    cfg="$cfg --enable-dylibversion --enable-debug"
 #   cfg="$cfg --with-optimiz-level=O2"
 #   cfg="$cfg --with-cern-lib=$CERN_DIR/lib"
+   cfg="$cfg --enable-lhapdf" 
    cfg="$cfg --with-lhapdf-inc=${LHAPDF_INC}"
    cfg="$cfg --with-lhapdf-lib=${LHAPDF_LIB}"
-   cfg="$cfg --enable-lhapdf" 
    cfg="$cfg --with-pythia6-lib=$PYTHIA6_DIR/lib"
    cfg="$cfg --with-libxml2-inc=${LIBXML2_INC} "
    cfg="$cfg --with-libxml2-lib=${LIBXML2_LIB}"
@@ -141,123 +141,6 @@ if [[ "x${domake}" == "xyes" ]] ; then
   make > do_make.log 2>&1
 fi
 
-if [[ "x${dofreenuc}" == "xyes" ]] ; then
-  unset GSPLOAD
-  time gmkspl -p -12,-14,-16,12,14,16 -t 1000010010,1000000010 -o $GSPLINE_DIR/gxspl-freenuc-rwh.xml > gxspl-freenuc-rwh.log 2>&1
-   #time gmkspl -p 12 -t 1000010010 -o $SPLINE_DIR/gxspl-12p-rwh.xml > gxspl-12p-rwh.log 2>&1
-  export GSPLOAD=$GSPLOAD_SAVE
-fi
-
-if [[ "x${doelements}" == "xyes" ]] ; then
-  export GSPLOAD=$GSPLINE_DIR/$GSPLINE_FREE
-#  for element in H C N O Na Mg Al Si P S Ca Ti V Cr Mn Fe Ni Cu Sn K
-  for element in K
-  do
-    export tgtlist=`$GENIE/../ionlist.py $element`
-    echo gmkspl -p -12,-14,-16,12,14,16 -t $tgtlist \
-        -o $GSPLINE_DIR/gxspl-${element}-rwh.xml 
-    time gmkspl -p -12,-14,-16,12,14,16 -t $tgtlist \
-         -o $GSPLINE_DIR/gxspl-${element}-rwh.xml > \
-            $GSPLINE_DIR/gxspl-${element}-rwh.log 2>&1
-  done
-  export GSPLOAD=$GSPLOAD_SAVE
-fi
-
-if [[ "x${docombine}" == "xyes" ]] ; then
-  echo combine
-  unset GSPLOAD
-  cd $GSPLINE_DIR
-  allfiles=`ls -1 gxspl-*-rwh.xml | tr "\n" "," ` 
-  # deal with trailing "," (causes coredump due to assert)
-  # by adding freenuc file
-  allfiles=${allfiles}${GSPLINE_FREE}
-
-  echo gspladd -i $allfiles -o gxspl-MINOS.xml
-  gspladd -i $allfiles -o gxspl-MINOS-full.xml  > gspladd-MINOS.log 2>&1
-  # squish?
-  #  cat gxspl-MINOS-full.xml  | tr -s ' ' | tr -d '\t' | sed -e 's/> />/g' -e 's/ </</g' > gxspl-MINOS-squish.xml
-  # ln -s gxspl-MINOS-squish.xml gxspl-MINOS.xml
-  ln -s gxspl-MINOS-full.xml gxspl-MINOS.xml
-  export GSPLOAD=$GSPLOAD_SAVE
-fi
-
-#
-export GSPLOAD=$GSPLOAD_SAVE
-
 #return 0
 exit
 
-###########################################################################
-#
-#$ cd /Users/rhatcher/Software
-#$ cvs -d /afs/rl.ac.uk/user/c/candreop/cvsrep checkout -P GENIE
-#
-source ~/.bash_setups
-setup_minos
-setup_genie
-
-# need to unsetup MAKEFILES and MAKEFLAGS
-srt_setup --unsetup
-
-
-#cd $LOG4CPP
-#./configure --prefix=${MINOS_BASE}/EXTERN
-#make
-#make -k install
-
-cd $GENIE
-CMD=""
-#CMD="echo "
-$CMD gmake clean
-setprefix="--prefix=$HOME/Software/genie_install"
-minosstuff="--enable-minos-evserv"
-echo configure
-$CMD ./configure $setprefix $minosstuff \
-  --disable-profiler --enable-nuvalidator --enable-neugen \
-  --disable-gibuu --enable-flux-drivers --enable-geom-drivers \
-  --disable-doxygen --enable-test --enable-viewer --enable-mueloss \
-  --enable-dylibversion --enable-debug --with-optimiz-level=O2 \
-  --with-cernlib=$CERN_DIR/lib --with-pythia6=$PYTHIA6/lib \
-  --with-libxml2-inc=/usr/include/libxml2 --with-libxml2-lib=/usr/lib \
-  --with-log4cpp-inc=$INSTALLATION/include --with-log4cpp-lib=$INSTALLATION/lib  \
-  > genie_config.log$CMD 2>&1
-  
-echo gmake
-unset MAKEFILES
-unset MAKEFLAGS
-$CMD gmake > genie_build.log$CMD 2>&1
-
-
-CMD=""
-CMD="echo "
-unset GSPLOAD
-#time gmkspl -p -12,-14,-16,12,14,16 -t 1000010010,1000000010 -o /Users/rhatcher/Software/GENIE_SPLINES/gxspl-freenuc-rwh.xml >gxspl-freenuc-rwh.log 2>&1
-#time gmkspl -p 12 -t 1000010010 -o /Users/rhatcher/Software/GENIE_SPLINES/gxspl-12p-rwh.xml >gxspl-12p-rwh.log 2>&1
-
-export GSPLINE_DIR=~/Software/GENIE_SPLINES
-export GSPLOAD=$GSPLINE_DIR/gxspl-freenuc-2.2.0.xml
-
-for element in H C N O Na Mg Al Si P S Ca Ti V Cr Mn Fe Ni Cu Sn
-do
-  tgtlist=`$GSPLINE_DIR/ionlist.py $element`
-  echo gmkspl -p -12,-14,-16,12,14,16 -t $tgtlist -o $GSPLINE_DIR/gxspl-${element}-rwh.xml 
-#  $CMD time gmkspl -p -12,-14,-16,12,14,16 -t $tgtlist -o $GSPLINE_DIR/gxspl-${element}-rwh.xml > $GSPLINE_DIR/gxspl-${element}-rwh.log$CMD 2>&1
-done
-
-CMD=""
-CMD="echo "
-cd $GSPLINE_DIR
-allfiles=`ls -1 gxspl-*-rwh.xml | tr "\n" "," ` 
-# deal with trailing "," (causes coredump due to assert)
-allfiles=${allfiles}gxspl-freenuc-2.2.0.xml
-
-echo gspladd -i $allfiles -o gxspl-MINOS.xml
-# $CMD gspladd -i $allfiles -o gxspl-MINOS-full.xml  > gspladd-MINOS.log$CMD 2>&1
-#  cat gxspl-MINOS-full.xml  | tr -s ' ' | tr -d '\t' | sed -e 's/> />/g' -e 's/ </</g' > gxspl-MINOS-squish.xml
-# ln -s gxspl-MINOS-squish.xml gxspl-MINOS.xml
-#
-
-
-export GSPLOAD=$GSPLINE_DIR/gxspl-MINOS.xml
-#  $ gevserv_minos 
-#  $ root -b client_test_freenuc.C
