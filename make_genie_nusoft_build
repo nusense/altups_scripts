@@ -118,6 +118,7 @@ export LOG4CPP_LIB=${LOG4CPP_FQ_DIR}/lib
 #   cfg="$cfg --enable-doxygen --enable-test --enable-viewer"
    cfg="$cfg --enable-mueloss"
    cfg="$cfg --enable-atmo --enable-rwght"
+   cfg="$cfg --enable-nucleon-decay"
    cfg="$cfg --enable-dylibversion --enable-debug"
 #   cfg="$cfg --with-optimiz-level=O2"
 #   cfg="$cfg --with-cern-lib=$CERN_DIR/lib"
