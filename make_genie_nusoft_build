@@ -7,26 +7,29 @@ if [ "x${GENIE_DIR}" == "x" ] ; then
   exit
 fi
 
+doclean=no
+doconfig=no
+domake=no
+verbose=no
+dovle=yes
+dovhe=no
+
 usage() {
   echo "Usage: ${whatami}              " >&2
-  echo "   -c:    clean                " >&2
-  echo "   -C:    configure            " >&2
-  echo "   -m:    make genie           " >&2
-  echo "   -v:    verbose              " >&2
-  echo "   --vle: enable-vle           " >&2
-  echo "   --vhe: enable-vhe           " >&2
+  echo "   -c:       clean               [$doclean]   " >&2
+  echo "   -C:       configure           [$doconfig]  " >&2
+  echo "   -m:       make genie          [$domake]    " >&2
+  echo "   -v:       verbose             [$doverbose] " >&2
+  echo "   --vle:    enable-vle          [$dovle]     " >&2
+  echo "   --no-vle: disable-vle                      " >&2
+  echo "   --vhe:    enable-vhe          [$dovhe]     " >&2
+  echo "   --no-vhe: disable-vhe                      " >&2
+
   return 1
 }
 
 GSPLOAD_SAVE=$GSPLOAD
 here=`pwd`
-
-doclean=no
-doconfig=no
-domake=no
-verbose=no
-dovle=no
-dovhe=no
 
 TEMP=`getopt -n ${whatami} -s bash -a --longoptions="help clean config make vle vhe" -o ?hcClmfesv -- "$@"`
 if [ $? != 0 ] ; then
@@ -44,6 +47,8 @@ do
     -v            ) verbose=yes  ;;
     --vle         ) dovle=yes    ;;
     --vhe         ) dovhe=yes    ;;
+    --no-vle      ) dovle=no     ;;
+    --no-vhe      ) dovhe=no     ;;
     --            ) shift ; break;;
   esac
   shift # eat the arg we just processed
@@ -56,6 +61,7 @@ else
 fi
 
 echo doclean=${doclean} doconfig=${doconfig} domake=${domake}
+echo dovle=${dovle} dovhe=${dovhe}
 
 eval $ECHOCMD cd `dirname $GENIE`
 cd `dirname $GENIE`
@@ -103,7 +109,7 @@ export LOG4CPP_LIB=${LOG4CPP_FQ_DIR}/lib
    cfg="$cfg --disable-lowlevel-mesg"
 #   cfg="$cfg --enable-nuvalidator --enable-neugen"
    if [[ "x${dovle}" == "xyes" ]] ; then
-     cfg="$cfg--enable-vle-extension"
+     cfg="$cfg --enable-vle-extension"
    fi
    if [[ "x${dovhe}" == "xyes" ]] ; then
      cfg="$cfg --enable-vhe-extension"

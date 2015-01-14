@@ -488,6 +488,8 @@ Common:
       prodDir()
       envSet(GENIE_FQ,\${UPS_PROD_FLAVOR}-${qualnocolon})
       envSet(GENIE,\${UPS_PROD_DIR}/\${GENIE_FQ}/${svntop})
+      envSet(GENIE_FQ_DIR,\${UPS_PROD_DIR}/\${GENIE_FQ})
+      envSet(GENIE_VERSION, ${UPS_PROD_VERSION})
       prodDir( _INC, \${GENIE_FQ}/include )
       prodDir( _LIB, \${GENIE_FQ}/lib )
       pathPrepend( LD_LIBRARY_PATH, \${UPS_PROD_DIR}/\${GENIE_FQ}/lib )
