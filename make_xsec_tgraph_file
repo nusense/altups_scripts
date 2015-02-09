@@ -1,0 +1,129 @@
+#! /usr/bin/env bash
+
+export GVER=$1
+export GQ=$2
+export GXSECVER=$3
+export GXSECQ=$4
+
+if [ -z "$GVER" ]; then 
+  echo "no genie version supplied"
+  exit
+fi
+
+if [ -z "$GQ" ]; then 
+  echo "no genie qualifer supplied"
+  exit
+fi
+
+if [ -z "$GXSECVER" ]; then
+  GXSECVER="$GVER"
+fi
+
+if [ -z "$GXSECQ" ]; then 
+  GXSECQ="default"
+fi
+
+if [ "$GVER" == "XYZZY" -a "$GXSECQ" == "XYZZY" ]; then
+  echo "using current default setups ... no cross check"
+else
+  source /nusoft/app/externals/setup
+  setup genie      $GVER     -q $GQ
+  setup genie_xsec $GXSECVER -q $GXSECQ
+fi
+
+export OLDSTYLE=0
+if [ -z "$GENIEXSECFILE" -o ! -f "$GENIEXSECFILE" ]; then
+  echo "no GENIEXSECFILE file: $GENEIXSECFILE"
+  if [ -z "$GSPLOAD" -o ! -f "$GSPLOAD" ]; then
+    echo "no GSPLOAD file:  $GSPLOAD"
+    exit
+  else
+    # old pre R-2_8_0 had GSPLOAD
+    export GENIEXSECFILE=$GSPLOAD
+    export OLDSTYLE=1
+  fi
+fi 
+
+where=`dirname $GENIEXSECFILE`
+cd $where
+echo working in area: $where
+
+export RXSEC=xsec_graphs_${GVER}_HCNOSClArTiFe.root
+echo creating $RXSEC
+echo `which gspl2root`
+
+
+# GENIE versions prior to 3670 must run each probe & target combination
+# separately (it will read existing file and append new combination)
+# After r3670 both can be comma separated lists and it will do all
+# combinations (without having to re-read the XML file)
+
+tgtlist="x"
+### H C N O S Cl Ar Ti Fe
+for tgt in 1000010010 1000060120 1000070140 1000080160 1000160320 \
+           1000170350 1000180400 1000220480 1000260560
+do
+  tgtlist="$tgtlist,$tgt"
+  for probe in 14 -14 12 -12 16 -16
+  do
+    echo "==== probe $probe tgt $tgt"
+    if [ $OLDSTYLE -eq 1 ]; then
+      gspl2root -f $GENIEXSECFILE -p  $probe -t $tgt -e 125 -o $RXSEC
+    fi
+  done
+done
+if [ $OLDSTYLE -eq 0 ]; then
+  # remove leading "x,"
+  tgtlist=`echo $tgtlist | cut -c3-`
+  probelist="14,-14,12,-12,16,-16"
+  gspl2root -f $GENIEXSECFILE -p  $probelist -t $tgtlist -e 125 -o $RXSEC
+fi
+
+ln -s $RXSEC xsec_graphs.root
+
+cat > /tmp/extract_xsec.C <<EOF
+#include <iostream>
+#include <iomanip>
+#include <string>
+#include <vector>
+using namespace std;
+
+#include "TFile.h"
+#include "TGraph.h"
+#include "TSpline.h"
+
+void extract_xsec(string fname="$RXSEC", double e=1.0)
+{
+  vector<string> nuflv; // = { "nu_mu", "nu_mu_bar", "nu_e", "nu_e_bar" };
+    nuflv.push_back("nu_mu"); nuflv.push_back("nu_mu_bar");
+    nuflv.push_back("nu_e");  nuflv.push_back("nu_e_bar");
+  vector<string> tgtnm; // = { "C12", "Fe56" };
+    tgtnm.push_back("C12");   tgtnm.push_back("Fe56");  tgtnm.push_back("H1");
+  vector<string> xsnm;  // = { "tot_cc", "tot_nc" };
+    xsnm.push_back("tot_cc"); xsnm.push_back("tot_nc");
+
+  TFile *f = TFile::Open(fname.c_str());
+  for (unsigned int itgt = 0; itgt < tgtnm.size(); ++itgt) {
+    for (unsigned int inu = 0; inu < nuflv.size(); ++inu) {
+      string gdir = nuflv[inu] + "_" + tgtnm[itgt];
+      double xsec_sum = 0;
+      for (unsigned int ix = 0; ix < xsnm.size(); ++ix ) {
+        string gpath = gdir + "/" + xsnm[ix]; 
+        TGraph* g = (TGraph*)f->Get(gpath.c_str());
+        if ( ! g ) continue;  // might not exist in file
+        double xsec = g->Eval(e,0,"S");  // not efficient, toss spline each eval
+        
+        cout << gpath << " @ " << e << " = " << xsec << endl;
+        xsec_sum += xsec;
+      }
+      if ( xsec_sum > 0 ) {
+        cout << gdir << "/tot @ " << e << " = " << xsec_sum << endl;
+      }
+    }
+  }
+}
+EOF
+
+root -b -q /tmp/extract_xsec.C
+
+# end-of-script
