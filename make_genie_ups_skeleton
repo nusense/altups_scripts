@@ -443,6 +443,9 @@ cd ${HERE}/${VERSION}/${flvqual}
 if [ ! -L make_genie_nusoft_build ]; then ln -s ../../make_genie_nusoft_build . ; fi
 if [ ! -L lib ]; then ln -s ${svntop}/lib . ; fi
 if [ ! -L bin ]; then ln -s ${svntop}/bin . ; fi
+cd include
+if [ ! -L GENIE ]; then ln -s ../${svntop}/src GENIE fi
+cd ..
 
 cd $HERE
 
