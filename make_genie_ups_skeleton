@@ -40,6 +40,7 @@ Usage: ${b0} [flags] <version> <qualifier> <svnrev>
   --lhapdf="<ups-setup-string>"             ["${lhapdf_ups_setup}"]
   --libxml2="<ups-setup-string>"            ["${libxml2_ups_setup}"]
   --log4cpp="<ups-setup-string>"            ["${log4cpp_ups_setup}"]
+  --gsl="<ups-setup-string>"                ["${gsl_ups_setup}"]
   --checkout[=<val>]  do SVN checkout
                       [true]/false
                        ssh (needs write privs)  # not yet supported
@@ -65,6 +66,7 @@ Dependencies:
   lhapdf  ${lhapdf_ups_setup}
   libxml2 ${libxml2_ups_setup}
   log4cpp ${log4cpp_ups_setup}
+  gsl     ${gsl_ups_setup}
 EOF
 }
 
@@ -85,6 +87,7 @@ export pythia_ups_setup=`trim_setup PYTHIA`
 export lhapdf_ups_setup=`trim_setup LHAPDF`
 export libxml2_ups_setup=`trim_setup LIBXML2`
 export log4cpp_ups_setup=`trim_setup LOG4CPP`
+export gsl_ups_setup=`trim_setup GSL`
 
 ###############################################################################
 # helper functions
@@ -205,7 +208,7 @@ process_args() {
   TEMP=`getopt -n $b0 -s bash -a \
       --longoptions="help verbose test flavor: checkout:: \
                      svn-user: qual-mismatch-ok show-config \
-                     gcc: root: pythia: lhapdf: libxml2: log4cpp: " \
+                     gcc: root: pythia: lhapdf: libxml2: log4cpp: gsl: " \
       -o htvf -- "$@" 2> $opterr `
   getoptstat=$?
   eval set -- "${TEMP}"
@@ -259,6 +262,7 @@ process_args() {
       --lhapdf        ) lhapdf_ups_setup="$2"  ; shift ;;
       --libxml2       ) libxml2_ups_setup="$2" ; shift ;;
       --log4cpp       ) log4cpp_ups_setup="$2" ; shift ;;
+      --gsl           ) gsl_ups_setup="$2"     ; shift ;;
     esac
     shift # eat up this arg
   done
@@ -436,7 +440,7 @@ if [ -d $INSIDE ]; then
   if [ ! -d bin ]; then mkdir bin ; fi
 fi
 cd ${HERE}/${VERSION}/${flvqual}
-if [ ! -L genie_build_nusoft.sh ]; then ln -s ../../genie_build_nusoft.sh . ; fi
+if [ ! -L make_genie_nusoft_build ]; then ln -s ../../make_genie_nusoft_build . ; fi
 if [ ! -L lib ]; then ln -s ${svntop}/lib . ; fi
 if [ ! -L bin ]; then ln -s ${svntop}/bin . ; fi
 
@@ -462,7 +466,7 @@ Group:
   Flavor=${FLAVOR}
   Qualifiers="${QUALIFIER}"
 
-  # Can't assume root, pythia, lhapdf, libxml2, log4cpp and gcc
+  # Can't assume root, pythia, lhapdf, libxml2, log4cpp, gsl and gcc
   # associated with the base release are still there after 
   # setting up this product because it will clear dependent
   # products unless one uses the "-j" option
@@ -481,6 +485,7 @@ Group:
      setupRequired( lhapdf  ${lhapdf_ups_setup} )
      setupRequired( libxml2 ${libxml2_ups_setup} )
      setupRequired( log4cpp ${log4cpp_ups_setup} )
+     setupRequired( gsl     ${gsl_ups_setup} )
 
 Common:
    Action=setup

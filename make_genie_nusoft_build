@@ -13,25 +13,28 @@ domake=no
 verbose=no
 dovle=yes
 dovhe=no
+dolowlevel=no
+targets="all"
 
 usage() {
   echo "Usage: ${whatami}              " >&2
-  echo "   -c:       clean               [$doclean]   " >&2
-  echo "   -C:       configure           [$doconfig]  " >&2
-  echo "   -m:       make genie          [$domake]    " >&2
-  echo "   -v:       verbose             [$doverbose] " >&2
-  echo "   --vle:    enable-vle          [$dovle]     " >&2
-  echo "   --no-vle: disable-vle                      " >&2
-  echo "   --vhe:    enable-vhe          [$dovhe]     " >&2
-  echo "   --no-vhe: disable-vhe                      " >&2
-
+  echo "   -c:         clean               [$doclean]   " >&2
+  echo "   -C:         configure           [$doconfig]  " >&2
+  echo "   -m:         make genie          [$domake]    " >&2
+  echo "   -v:         verbose             [$doverbose] " >&2
+  echo "   --vle:      enable-vle          [$dovle]     " >&2
+  echo "   --no-vle:   disable-vle                      " >&2
+  echo "   --vhe:      enable-vhe          [$dovhe]     " >&2
+  echo "   --no-vhe:   disable-vhe                      " >&2
+  echo "   --lowlevel: lowlevel-mesg       [$dolowlevel]" >&2
+  echo "   --targets=<target>              [$targets]   " >&2
   return 1
 }
 
 GSPLOAD_SAVE=$GSPLOAD
 here=`pwd`
 
-TEMP=`getopt -n ${whatami} -s bash -a --longoptions="help clean config make vle vhe" -o ?hcClmfesv -- "$@"`
+TEMP=`getopt -n ${whatami} -s bash -a --longoptions="help clean config make vle vhe no-vle no-vhe lowlevel targets:" -o ?hcClmfesv -- "$@"`
 if [ $? != 0 ] ; then
   echo "Usage: ${whatami} [-c] [-C] " >&2
 fi
@@ -40,16 +43,18 @@ unset TEMP
 for o
 do
   case "$o" in
-    -h | --help   ) usage ; exit ;;
-    -c | --clean  ) doclean=yes  ;;
-    -C | --config ) doconfig=yes ;;
-    -m | --make   ) domake=yes   ;;
-    -v            ) verbose=yes  ;;
-    --vle         ) dovle=yes    ;;
-    --vhe         ) dovhe=yes    ;;
-    --no-vle      ) dovle=no     ;;
-    --no-vhe      ) dovhe=no     ;;
-    --            ) shift ; break;;
+    -h | --help   ) usage ;    exit;;
+    -c | --clean  ) doclean=yes    ;;
+    -C | --config ) doconfig=yes   ;;
+    -m | --make   ) domake=yes     ;;
+    -v            ) verbose=yes    ;;
+    --vle         ) dovle=yes      ;;
+    --vhe         ) dovhe=yes      ;;
+    --no-vle      ) dovle=no       ;;
+    --no-vhe      ) dovhe=no       ;;
+    --lowlevel    ) dolowlevel=yes ;;
+    --targets     ) targets="$2"; shift ;;
+    --            ) shift ;   break;;
   esac
   shift # eat the arg we just processed
 done
@@ -61,7 +66,7 @@ else
 fi
 
 echo doclean=${doclean} doconfig=${doconfig} domake=${domake}
-echo dovle=${dovle} dovhe=${dovhe}
+echo dovle=${dovle} dovhe=${dovhe} dolowlevel=${dolowlevel}
 
 eval $ECHOCMD cd `dirname $GENIE`
 cd `dirname $GENIE`
@@ -105,15 +110,18 @@ export LOG4CPP_LIB=${LOG4CPP_FQ_DIR}/lib
     novastuff=" "
 #
    cfg=" $setprefix $minosstuff $novastuff" 
-#   cfg="$cfg --enable-lowlevel-mesg"
-   cfg="$cfg --disable-lowlevel-mesg"
-#   cfg="$cfg --enable-nuvalidator --enable-neugen"
+   if [[ "x${dolowlevel}" == "xyes" ]] ; then
+     cfg="$cfg --enable-lowlevel-mesg"
+   else
+     cfg="$cfg --disable-lowlevel-mesg"
+   fi
    if [[ "x${dovle}" == "xyes" ]] ; then
      cfg="$cfg --enable-vle-extension"
    fi
    if [[ "x${dovhe}" == "xyes" ]] ; then
      cfg="$cfg --enable-vhe-extension"
    fi
+#   cfg="$cfg --enable-nuvalidator --enable-neugen"
    cfg="$cfg --disable-gibuu --enable-flux-drivers --enable-geom-drivers"
 #   cfg="$cfg --enable-doxygen --enable-test --enable-viewer"
    cfg="$cfg --enable-mueloss"
@@ -144,8 +152,11 @@ fi
 if [[ "x${domake}" == "xyes" ]] ; then
   #srt_setup --unsetup
   unset MAKEFILE MAKEFLAG MAKEFILES MAKEFLAGS
-  echo make
-  make > do_make.log 2>&1
+  echo make $targets
+  make $targets > do_make.log 2>&1
+  makestatus=$?
+  echo "\"make $targets\" completed with status $makestatus"
+  grep error do_make.log
 fi
 
 #return 0
