@@ -92,9 +92,11 @@ export gsl_ups_setup=`trim_setup GSL`
 ###############################################################################
 # helper functions
 ###############################################################################
-OUTRED='\e[0;31m'
-OUTGREEN='\e[0;32m'
-OUTNOC='\e[0m' # No Color
+ESC="\e"
+if [ "Darwin" == `uname` ]; then ESC="\x1B"; fi
+OUTRED="${ESC}[0;31m"
+OUTGREEN="${ESC}[0;32m"
+OUTNOC="${ESC}[0m" # No Color
 #echo -e "${OUTRED}Hello Stack${OUTNOC}"
 err_red() {
   echo -n -e "${OUTRED}" >&2
@@ -346,6 +348,10 @@ setfullsvnpath() {
     echo -e "${OUTGREEN} SVNFULLPATH=${SVNFULLPATH} found=$found nondigits=$nondigits ${OUTNOC}"
   fi
 
+if [ $VERBOSE -gt 0 ]; then 
+echo -e "${OUTGREEN} end of setfullsvnpath SVNFULLPATH=${SVNFULLPATH} ${OUTNOC}"
+fi
+
 }
 
 ###############################################################################
@@ -428,8 +434,8 @@ if [ "$CHECKOUT" != "false" ]; then
       exit
     fi
   else
-    echo "it appears GENIE is already checked out from SVN"
-    echo "if you need it update you'll have to do that by hand"
+    echo -e "${OUTRED} it appears GENIE is already checked out from SVN ${OUTNOC}"
+    echo -e "${OUTRED} if you need it update you'll have to do that by hand ${OUTNOC}"
   fi
 fi
 
@@ -444,10 +450,11 @@ if [ ! -L make_genie_nusoft_build ]; then ln -s ../../make_genie_nusoft_build . 
 if [ ! -L lib ]; then ln -s ${svntop}/lib . ; fi
 if [ ! -L bin ]; then ln -s ${svntop}/bin . ; fi
 cd include
-if [ ! -L GENIE ]; then ln -s ../${svntop}/src GENIE fi
+if [ ! -L GENIE ]; then ln -s ../${svntop}/src GENIE ; fi
 cd ..
 
 cd $HERE
+
 
 tableFile=${VERSION}/ups/${PRODUCT}.table
 versionFile=${VERSION}.version/${FLAVOR}-${qualnocolon}
