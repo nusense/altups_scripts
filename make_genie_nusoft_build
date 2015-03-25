@@ -106,7 +106,7 @@ export LOG4CPP_LIB=${LOG4CPP_FQ_DIR}/lib
 
    setprefix=""
 #   minosstuff="--enable-minos-evserv"
-   minosstuff="--enable-event-server --enable-numi"
+   minosstuff="--enable-event-server --enable-numi --enable-fnal"
     novastuff=" "
 #
    cfg=" $setprefix $minosstuff $novastuff" 
