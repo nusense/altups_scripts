@@ -306,11 +306,11 @@ setfullsvnpath() {
 # build URL for checkout (possibly w/ -r flag)
 # svn co http://genie.hepforge.org/svn/generator/trunk local_directory 
 # svn co http://genie.hepforge.org/svn/generator/branches/genie_tag local_directory 
-# svn co svn+ssh://username@svn.hepforge.org/hepforge/svn/generator/genie/trunk local_directory 
+# svn co svn+ssh://username@svn.hepforge.org/hepforge/svn/genie/generator/trunk local_directory 
   if [ "${CHECKOUT}" == "false" ]; then return ; fi
   if [ "${CHECKOUT}" == "ssh"   ]; then
      # special case for writablility
-    SVNFULLPATH="svn+ssh://${SVNUSER}@svn.hepforge.org/hepforge/svn/generator/genie"
+    SVNFULLPATH="svn+ssh://${SVNUSER}@svn.hepforge.org/hepforge/svn/genie/generator"
   else
     SVNFULLPATH="http://genie.hepforge.org/svn/generator"
   fi
