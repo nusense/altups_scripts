@@ -57,7 +57,7 @@ Common:
       envSet(GENIEXSECPATH, \${UPS_PROD_DIR}/data)
       # GSPLOAD should find it in GXMLPATH for newer versions of GENIE
       # but specify full path just in case
-      envSet(GENIEXSECFILE, \${UPS_PROD_DIR}/data/gxspl-NuMIsmall.xml)
+      envSet(GENIEXSECFILE, \${UPS_PROD_DIR}/data/gxspl-FNALsmall.xml)
       pathPrepend(GXMLPATH, \${UPS_PROD_DIR}/data)
 
 End:
