@@ -32,11 +32,15 @@ fi
 
 if [ "$1" == "NOGENIE" ]; then
   GENIEOPT="-DWITH_GENIE=OFF"
+  shift
 fi
 if [ "$1" == "USEGCC" ]; then
   COMPILEROPT="-DCMAKE_CXX_COMPILER=`which g++` -DCMAKE_C_COMPILER=`which gcc`"
+  shift
 fi
-
+if [ "$1" == "VERBOSE" ]; then
+  export doverbose="VERBOSE=1"
+fi
 
 export DK2NU_DIR=${HERE}
 export DK2NU=${DK2NU_DIR}/dk2nu
@@ -51,7 +55,7 @@ fi
 CMD="${MACEXTRA} cmake ${COMPILEROPT} ${GENIEOPT} -DCMAKE_INSTALL_PREFIX:PATH=$DK2NU ../dk2nu"
 echo $CMD
      $CMD
-gmake all install
+gmake ${doverbose} all install
 
 if [ "$arch" == "Darwin" ]; then
 # for now install_name_tool seems to be a problem on mac os x
