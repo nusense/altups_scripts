@@ -304,15 +304,15 @@ process_args() {
 
 setfullsvnpath() {
 # build URL for checkout (possibly w/ -r flag)
-# svn co http://genie.hepforge.org/svn/trunk local_directory 
-# svn co http://genie.hepforge.org/svn/branches/genie_tag local_directory 
-# svn co svn+ssh://username@svn.hepforge.org/hepforge/svn/genie/trunk local_directory 
+# svn co http://genie.hepforge.org/svn/generator/trunk local_directory 
+# svn co http://genie.hepforge.org/svn/generator/branches/genie_tag local_directory 
+# svn co svn+ssh://username@svn.hepforge.org/hepforge/svn/generator/genie/trunk local_directory 
   if [ "${CHECKOUT}" == "false" ]; then return ; fi
   if [ "${CHECKOUT}" == "ssh"   ]; then
      # special case for writablility
-    SVNFULLPATH="svn+ssh://${SVNUSER}@svn.hepforge.org/hepforge/svn/genie"
+    SVNFULLPATH="svn+ssh://${SVNUSER}@svn.hepforge.org/hepforge/svn/generator/genie"
   else
-    SVNFULLPATH="http://genie.hepforge.org/svn"
+    SVNFULLPATH="http://genie.hepforge.org/svn/generator"
   fi
   # now decide HEAD or branch; all digits = revision # off trunk
   nondigits=`echo $SVNREV | tr -d '[0-9]'`
@@ -327,7 +327,7 @@ setfullsvnpath() {
     # some branches hidden from normal users
     HTTP="http"
     if [ "$CHECKOUT" == "ssh" ]; then HTTP="https" ; fi
-    svn list ${HTTP}://genie.hepforge.org/svn/branches | \
+    svn list ${HTTP}://genie.hepforge.org/svn/generator/branches | \
              tr -d '/' > ${svntaglist}
 
     found=`grep -c ${SVNREV} ${svntaglist}`
