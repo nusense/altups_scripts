@@ -86,9 +86,11 @@ current_config() {
 ###############################################################################
 # helper functions
 ###############################################################################
-OUTRED='\e[0;31m'
-OUTGREEN='\e[0;32m'
-OUTNOC='\e[0m' # No Color
+ESC="\e"
+if [ "Darwin" == `uname` ]; then ESC="\x1B"; fi
+OUTRED="${ESC}[0;31m"
+OUTGREEN="${ESC}[0;32m"
+OUTNOC="${ESC}[0m" # No Color
 #echo -e "${OUTRED}Hello Stack${OUTNOC}"
 err_red() {
   echo -n -e "${OUTRED}" >&2
