@@ -15,6 +15,7 @@ dovle=yes
 dovhe=no
 dolowlevel=no
 targets="all"
+compiler="gcc"
 
 usage() {
   echo "Usage: ${whatami}              " >&2
@@ -28,6 +29,7 @@ usage() {
   echo "   --no-vhe:   disable-vhe                      " >&2
   echo "   --lowlevel: lowlevel-mesg       [$dolowlevel]" >&2
   echo "   --targets=<target>              [$targets]   " >&2
+  echo "   --with-compiler: gcc/clang      [$compiler]  " >&2
   return 1
 }
 
@@ -43,18 +45,19 @@ unset TEMP
 for o
 do
   case "$o" in
-    -h | --help   ) usage ;    exit;;
-    -c | --clean  ) doclean=yes    ;;
-    -C | --config ) doconfig=yes   ;;
-    -m | --make   ) domake=yes     ;;
-    -v            ) verbose=yes    ;;
-    --vle         ) dovle=yes      ;;
-    --vhe         ) dovhe=yes      ;;
-    --no-vle      ) dovle=no       ;;
-    --no-vhe      ) dovhe=no       ;;
-    --lowlevel    ) dolowlevel=yes ;;
-    --targets     ) targets="$2"; shift ;;
-    --            ) shift ;   break;;
+    -h | --help     ) usage ;    exit;;
+    -c | --clean    ) doclean=yes    ;;
+    -C | --config   ) doconfig=yes   ;;
+    -m | --make     ) domake=yes     ;;
+    -v              ) verbose=yes    ;;
+    --vle           ) dovle=yes      ;;
+    --vhe           ) dovhe=yes      ;;
+    --no-vle        ) dovle=no       ;;
+    --no-vhe        ) dovhe=no       ;;
+    --lowlevel      ) dolowlevel=yes ;;
+    --targets       ) targets="$2"; shift ;;
+    --with-compiler ) compiler="$2" ; shift ;;
+    --              ) shift ;   break;;
   esac
   shift # eat the arg we just processed
 done
@@ -66,7 +69,7 @@ else
 fi
 
 echo doclean=${doclean} doconfig=${doconfig} domake=${domake}
-echo dovle=${dovle} dovhe=${dovhe} dolowlevel=${dolowlevel}
+echo dovle=${dovle} dovhe=${dovhe} dolowlevel=${dolowlevel} compiler=${compiler}
 
 eval $ECHOCMD cd `dirname $GENIE`
 cd `dirname $GENIE`
@@ -110,6 +113,9 @@ export LOG4CPP_LIB=${LOG4CPP_FQ_DIR}/lib
     novastuff=" "
 #
    cfg=" $setprefix $minosstuff $novastuff" 
+   if [[ "x${compiler}" != "x" ]] ; then
+     cfg="$cfg --with-compiler=${compiler}"
+   fi
    if [[ "x${dolowlevel}" == "xyes" ]] ; then
      cfg="$cfg --enable-lowlevel-mesg"
    else
