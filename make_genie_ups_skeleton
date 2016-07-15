@@ -9,7 +9,7 @@ export SVNREV=""    # SVN tag or revision e.g. HEAD, R-2_8_0 or 3665
 export SVNFULLPATH="no-checkout"
 export SVNUSER=`who am i | cut -d' ' -f1`
 export CHECKOUT="yes"
-export FLAVOR=`ups flavor -2`    # 
+export FLAVOR=`ups flavor`    # 
 export VERBOSE=0
 
 export showusage=0
@@ -412,8 +412,8 @@ qualnocolon=`echo ${QUALIFIER} | tr ':' '-' `
 flvqual="${FLAVOR}-${qualnocolon}"
 svntop=GENIE_${VERSION}
 
-for p in ${VERSION}/ups \
-         ${VERSION}/${flvqual} \
+for p in ${VERSION} \
+         ${VERSION}/${flvqual}/ups \
          ${VERSION}/${flvqual}/include \
          ${VERSION}.version
 do
@@ -456,7 +456,7 @@ cd ..
 cd $HERE
 
 
-tableFile=${VERSION}/ups/${PRODUCT}.table
+tableFile=${VERSION}/${FLAVOR}-${qualnocolon}/ups/${PRODUCT}.table
 versionFile=${VERSION}.version/${FLAVOR}-${qualnocolon}
 
 #
@@ -561,7 +561,7 @@ QUALIFIERS   = "${QUALIFIER}"
   MODIFIED   = ${nowGMT} GMT
   PROD_DIR   = ${PRODUCT}/${VERSION}
   UPS_DIR    = ups
-  TABLE_FILE = ${PRODUCT}.table
+  TABLE_FILE = ${VERSION}/${FLAVOR}-${qualnocolon}/ups/${PRODUCT}.table
 #
 #*************************************************
 EOF
