@@ -1,10 +1,8 @@
 #! /usr/bin/env bash
 # (checkout and) build dk2nu package
 #
-#  * Assumes that 'dk2nu' has been checked out and that we're sitting in
-#    the directory above it.
-#      + If using UPS then $DK2NU_DIR should point to the right place
-#        and this script is invoked via:   ../../../make_dk2nu_build
+#  * Assumes that 'dk2nu' has been checked out and 
+#    lives in ../source/dk2nu, while we're sitting in $DK2NU_FQ_DIR
 #  * Assumes that GENIE (and thus ROOT) or just ROOT have been setup
 #  * $ROOTSYS must point to the ROOT area
 #  * If building against GENIE then $GENIE should point to the top of
@@ -25,25 +23,21 @@ if [ $cstatus -ne 0 ]; then
 fi
 echo "using $whichcm"
 
-if [ ! -d dk2nu ]; then
+if [ ! -d ../source/dk2nu ]; then
   echo "dk2nu directory not found?  did you check it out from SVN?"
   exit 1
 fi
 
 if [ "$1" == "NOGENIE" ]; then
   GENIEOPT="-DWITH_GENIE=OFF"
-  shift
 fi
 if [ "$1" == "USEGCC" ]; then
   COMPILEROPT="-DCMAKE_CXX_COMPILER=`which g++` -DCMAKE_C_COMPILER=`which gcc`"
-  shift
-fi
-if [ "$1" == "VERBOSE" ]; then
-  export doverbose="VERBOSE=1"
 fi
 
+
 export DK2NU_DIR=${HERE}
-export DK2NU=${DK2NU_DIR}/dk2nu
+export DK2NU=${DK2NU_DIR}
 
 mkdir dk2nu-build
 cd $HERE/dk2nu-build
@@ -52,24 +46,22 @@ arch=`uname -s`
 if [ "$arch" == "Darwin" ]; then
   MACEXTRA="env CC=gcc CXX=g++ FC=gfortran"
 fi
-CMD="${MACEXTRA} cmake ${COMPILEROPT} ${GENIEOPT} -DCMAKE_INSTALL_PREFIX:PATH=$DK2NU ../dk2nu"
+CMD="${MACEXTRA} cmake ${COMPILEROPT} ${GENIEOPT} -DCMAKE_INSTALL_PREFIX:PATH=$DK2NU ../../source/dk2nu"
+
 echo $CMD
      $CMD
-gmake ${doverbose} all install
-
-if [ "$arch" == "Darwin" ]; then
-# for now install_name_tool seems to be a problem on mac os x
-  cd $HERE
-  cp dk2nu-build/lib/libdk2nu* dk2nu/lib/
-fi
-
-
-
-genie -b -q "$DK2NU/scripts/load_dk2nu.C(true,true,true)"
+gmake all install
 
 cd $HERE
 #rm -r dk2nu-build
 
+if [ "$arch" == "Darwin" ]; then
+# for now install_name_tool seems to be a problem on mac os x
+  cd $HERE
+  cp dk2nu-build/lib/libdk2nu* ${DK2nU_LIB}
+fi
 
+
+genie -b -q "$DK2NU/scripts/load_dk2nu.C(true,true,true)"
 #
 # end-of-script

@@ -9,7 +9,7 @@ export HERE=`pwd`
 ###############################################################################
 export PRODUCT="dk2nu"
 export VERSION="test"
-export QUALIFIER="e4:debug"
+export QUALIFIER="e10:r6:debug"
 export FLAVOR=""
 
 export VERBOSE=0
@@ -327,7 +327,7 @@ check_depend
 
 # flavor still unset?
 if [ -z "$FLAVOR" ]; then
-  FLAVOR=`ups flavor -2` # for now follow "genie"
+  FLAVOR=`ups flavor` # for now follow "genie"
 fi
 
 if [ $VERBOSE -gt 0 ]; then
@@ -365,13 +365,14 @@ echo "prepare to generate ups framework for"
 echo "   setup ${PRODUCT} ${VERSION} -f ${FLAVOR} -q ${QUALIFIER}"
 #echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
 
-for p in ${VERSION}/${FLAVOR}/${QPATH}/ups \
-         ${VERSION}.version
+for p in ${VERSION}/${FLAVOR}-${QPATH}/ups \
+         ${VERSION}/source \
+         ${VERSION}.version 
 do
   if [ ! -d $p ]; then mkdir -p $p; fi
 done
 
-tableFile=${VERSION}/${FLAVOR}/${QPATH}/ups/${PRODUCT}.table
+tableFile=${VERSION}/${FLAVOR}-${QPATH}/ups/${PRODUCT}.table
 versionFile=${VERSION}.version/${FLAVORVF}
 
 #
@@ -394,9 +395,13 @@ Common:
       setupenv()
       setupRequired( ${DEPENDPRD}  ${DEPENDVER} -q ${DEPENDQUAL} )
       ${GCCTABLELINE}
-      envSet(DK2NU, \${UPS_PROD_DIR}/dk2nu)
-      pathAppend(LD_LIBRARY_PATH, \${UPS_PROD_DIR}/dk2nu/lib)
-      pathAppend(PATH, \${UPS_PROD_DIR}/dk2nu/bin)
+      envSet(DK2NU_DIR,    \${UPS_PROD_DIR})
+      envSet(DK2NU,        \${UPS_PROD_DIR}/${FLAVOR}-${QPATH})
+      envSet(DK2NU_FQ_DIR, \${UPS_PROD_DIR}/${FLAVOR}-${QPATH})
+      envSet(DK2NU_LIB,    \${DK2NU_FQ_DIR}/lib)
+      envSet(DK2NU_INC,    \${DK2NU_FQ_DIR}/include)
+      pathAppend(LD_LIBRARY_PATH, \${DK2NU_FQ_DIR}/lib)
+      pathAppend(PATH,            \${DK2NU_FQ_DIR}/bin)
 
 End:
 # End Group definition
@@ -443,8 +448,8 @@ QUALIFIERS   = "${QUALIFIER}"
   DECLARED   = ${nowGMT} GMT
   MODIFIER   = ${iam}
   MODIFIED   = ${nowGMT} GMT
-  PROD_DIR   = ${PRODUCT}/${VERSION}/${FLAVOR}/${QPATH}
-  UPS_DIR    = ups
+  PROD_DIR   = ${PRODUCT}/${VERSION}
+  UPS_DIR    = ${FLAVOR}-${QPATH}/ups
   TABLE_FILE = ${PRODUCT}.table
 #
 #*************************************************
@@ -458,7 +463,7 @@ if [ "$CHECKOUT" == "true" -o "$CHECKOUT" == "ssh" ]; then
   # setup == source `$UPS_DIR/bin/ups setup <args>`
   #     'ups setup' creates a script that must be sourced
   source `${UPS_DIR}/bin/ups setup dk2nu $VERSION -f $FLAVOR -q $QUALIFIER`
-  cd $DK2NU_DIR
+  cd $DK2NU_DIR/source
   echo "starting checkout, currently in:"
   echo "   `pwd`"
   echo svn checkout $FULLSVNPATH > svn.checkout.log 2>&1
