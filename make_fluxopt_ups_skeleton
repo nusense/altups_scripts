@@ -1,15 +1,15 @@
 #! /usr/bin/env bash
 #
-# create a skeleton UPS setup for genie_phyopt
-#    this provides an area to put a UserPhysicsOptions.xml
+# create a skeleton UPS setup for genie_fluxopt
+#    this provides an area to put a GNuMIFlux.xml
 #
 #       ./make_skeleton <version> [<qualifier>]
 # e.g.  ./make_skeleton v3665 dkcharmtau
 #
 product="genie_fluxopt"
 version=""         # like v2_12_0
-qual="nova:v01"  # use something else for special cases (modified MA, etc)
-flavor="NULL"      # UserPhysicsOptions.xml file don't depend on OS flavor
+qual="nova"        # 
+flavor="NULL"      # GNuMIFlux.xml file don't depend on OS flavor
 
 if [ -z "$1" ]; then
   echo "You must supply a version"
@@ -21,7 +21,7 @@ if [ -n "$2" ]; then qual="$2"; fi
 
 # odd case for .version file if NULL, examples have trailing _
 flavorvf=${flavor}
-if [ "$flavor" == "NULL" ]; then flavorvf="NULL_"; fi
+#####if [ "$flavor" == "NULL" ]; then flavorvf="NULL_"; fi
 
 
 #echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
@@ -39,15 +39,17 @@ here=`pwd`
 cd ${version}/${flavor}/${qual}
 basexmlfile=GNuMIFlux.xml 
 initxmlpath=${GENIE}/src/FluxDrivers/GNuMINtuple
+newxmlfile=FluxConfig.xml
 if [ -f ${initxmlpath}/${basexmlfile} ]; then
-     cp ${initxmlpath}/${basexmlfile} ${basexmlfile}
+     cp ${initxmlpath}/${basexmlfile} ./${newxmlfile}
+     ln -s ${newxmlfile} ${basexmlfile}
 else
-echo -e "${OUTRED}failed to copy in ${basexmlfile} from \"${initxmlpath}\" ${OUTNOCOL}"
+echo -e "${OUTRED}failed to copy in ${basexmlfile} from \"${initxmlpath}\" to ${newxmlfile} ${OUTNOCOL}"
 fi
 cd $here
 
 tableFile=${version}/${flavor}/${qual}/ups/${product}.table
-versionFile=${version}.version/${flavorvf}
+versionFile=${version}.version/${flavorvf}_${qual}
 
 #
 # create the table file
@@ -69,11 +71,16 @@ Common:
       proddir()
       setupenv()
       envSet(GENIE_FLUXOPT_PATH, \${UPS_PROD_DIR})
-      # envSet(NOVA_GSIMPLE_DET_FLUX_VERSION,  nova_v08)
-      # envSet(NOVA_GSIMPLE_ROCK_FLUX_VERSION, nova_v08)
-      # envSet(DK2NU_ME_FHC_FLUX_PATH,\${PNFS_NOVA_DATA}/flux/g4numi/v6/me000z200i)
-      # envSet(DK2NU_ME_RHC_FLUX_PATH,\${PNFS_NOVA_DATA}/flux/g4numi/v6/me000z-200i)
+      envSet(GNUMIFLUXXML, \${UPS_PROD_DIR}/${newxmlfile})
+      envSet(GDK2NUFLUXXML,\${UPS_PROD_DIR}/${newxmlfile})
       pathAppend(GXMLPATH, \${UPS_PROD_DIR})
+
+      # nova specific
+      envSet(NOVA_GSIMPLE_DET_FLUX_VERSION,  nova_v08)
+      envSet(NOVA_GSIMPLE_ROCK_FLUX_VERSION, nova_v08)
+      envSet(DK2NU_ME_FHC_FLUX_PATH,\${PNFS_NOVA_DATA}/flux/g4numi/v6/me000z200i)
+      envSet(DK2NU_ME_RHC_FLUX_PATH,\${PNFS_NOVA_DATA}/flux/g4numi/v6/me000z-200i)
+
 
 End:
 # End Group definition
