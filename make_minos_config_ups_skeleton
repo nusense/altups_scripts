@@ -1,0 +1,154 @@
+#! /usr/bin/env bash
+#
+# create a skeleton UPS setup for minos_config
+#    this provides an area to set some MINOS environment variables
+#
+#       ./make_skeleton <version> [<qualifier>]
+# e.g.  ./make_skeleton v02 
+#
+product="minos_config"
+version=""         # like v02
+qual="default"     # 
+flavor="NULL"      # don't depend on OS flavor
+
+if [ -z "$1" ]; then
+  echo "You must supply a version"
+  exit
+fi
+version=$1
+
+if [ -n "$2" ]; then qual="$2"; fi
+
+# odd case for .version file if NULL, examples have trailing _
+flavorvf=${flavor}
+#####if [ "$flavor" == "NULL" ]; then flavorvf="NULL_"; fi
+
+
+#echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+echo "prepare to generate ups framework for"
+echo "   setup ${product} ${version} -f ${flavor} -q ${qual}"
+#echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+
+for p in ${version}/${flavor}/${qual}/ups \
+         ${version}.version
+do
+  if [ ! -d $p ]; then mkdir -p $p; fi
+done
+
+here=`pwd`
+cd ${version}/${flavor}/${qual}
+cd $here
+
+tableFile=${version}/${flavor}/${qual}/ups/${product}.table
+versionFile=${version}.version/${flavorvf}_${qual}
+
+#
+# create the table file
+#
+if [ ! -f ${tableFile} ]; then
+cat > ${tableFile} <<EOF
+File=Table
+Product=${product}
+#*************************************************
+# Starting Group definition
+
+Group:
+
+Flavor=${flavor}
+Qualifiers="${qual}"
+
+Common:
+   Action=setup
+      proddir()
+      setupenv()
+
+### report what's been setup
+      execute("echo MINOSSOFT release \"\${SRT_BASE_RELEASE}\"",UPS_ENV)
+      execute("echo SRT_SUBDIR=\${SRT_SUBDIR} ROOT=\`basename \$ROOTSYS\` CONFIG=\${UPS_PROD_VERSION}",UPS_ENV)       
+
+### set common env variables 
+   envSet(ENV_TSQL_URL,"mysql:odbc://minos-db1.fnal.gov/temp;mysql:odbc://minos-db1.fnal.gov/offline")
+   envSet(ENV_TSQL_USER,reader)
+   envSet(ENV_TSQL_PSWD,minos_db)
+#
+   envSet(MINOS_PEDANTIC,1)
+   envSet(CVS_RSH,ssh)
+#
+#   envSet(ENV_DBI,"Level2Cache = '\${MINOS_DATA}/db_cache/\${SRT_SUBDIR}'")
+#
+
+   execute("uname -n | grep -e 'minos[0-9][0-9]' | cut -d. -f1",NO_UPS_ENV,MINOS_CLUSTER_NODE)
+   if ( test "" != "\${MINOS_CLUSTER_NODE}" )
+      execute("echo \${MINOS_CLUSTER_NODE} | sed -e 's%minos%/local/scratch%' ",NO_UPS_ENV,SCRATCH)
+      execute("echo cluster node \${MINOS_CLUSTER_NODE} SCRATCH=\${SCRATCH}",NO_UPS_ENV,SCRATCH)
+   endif ( test "" != "\${MINOS_CLUSTER_NODE}" )
+
+### remove some historical env vars
+# used in some .rootrc files, so leave alone:  unset BFARCH
+   envUnset(BFDIST)
+   envUnset(BFCURRENT)
+#
+### post SRT setup manipulations
+#
+   pathPrepend(PYTHONPATH,\${SRT_PUBLIC_CONTEXT}/PerfTools/python)
+   pathRemove(PATH,\${SRT_DIST}/setup)
+   pathAppend(PATH,\${SRT_DIST}/setup)
+
+
+End:
+# End Group definition
+#*************************************************
+EOF
+else
+  echo "!!!!!  ${tableFile} exists, will not overwrite -- you must hand edit to add \"${qual}\""
+fi
+
+#
+# create the version file, if it doesn't exist
+#
+if [ ! -f ${versionFile} ]; then
+cat > ${versionFile} <<EOF
+FILE = version
+PRODUCT = ${product}
+VERSION = ${version}
+
+#*************************************************
+EOF
+fi
+
+iam=`whoami`
+if [ "$iam" == "nusoft" ]; then
+  altiam=`klist | grep "Default principal" | cut -d':' -f2 | cut -d'@' -f1 | tr -d ' ' `
+  if [ -n "$altiam" ]; then
+    iam=${altiam}
+    echo "i am \"${iam}\""
+  fi
+fi
+nowGMT=`date -u "+%Y-%m-%d %H:%M:%S"`
+
+nf=`grep QUALIFIERS ${versionFile} | grep -c \"${qual}\"`
+if [ $nf -ne 0 ]; then
+  echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+  echo "${versionFile} already has an entry for \"${qual}\""
+  echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+else
+#
+# add this version to the version file
+#
+cat >> ${versionFile} <<EOF
+#
+FLAVOR = ${flavor}
+QUALIFIERS   = "${qual}"
+  DECLARER   = ${iam}
+  DECLARED   = ${nowGMT} GMT
+  MODIFIER   = ${iam}
+  MODIFIED   = ${nowGMT} GMT
+  PROD_DIR   = ${product}/${version}/${flavor}/${qual}
+  UPS_DIR    = ups
+  TABLE_FILE = ${product}.table
+#
+#*************************************************
+EOF
+fi
+
+# end-of-script

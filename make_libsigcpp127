@@ -1,0 +1,399 @@
+#! /usr/bin/env bash
+# create a skeleton UPS setup for dk2nu
+#
+b0=`basename $0`
+export HERE=`pwd`
+#
+###############################################################################
+# some defaults
+###############################################################################
+export PRODUCT="libsigcpp" # always
+export VERSION="v1_2_7"    # always
+export QUALIFIER="e9:r5"
+export FLAVOR=""
+
+export VERBOSE=0
+export REQUIREGENIE=1
+export ALLOWQUALMISMATCH=0
+export ISTEST=0
+
+#
+export DEPENDPRD="genie"  # or 'root'
+export DEPENDVER="<not-specified>"
+export DEPENDQUAL="<not-specified>"
+export GCCSETUP="xyz"
+#
+export showusage=0
+export showpurpose=0
+export showconfig=0
+export doexit=-1
+
+###############################################################################
+# usage function
+###############################################################################
+purpose() {
+  echo " " >&2
+  echo "Purpose:  Create a skeleton UPS area for a version of $PRODUCT" >&2
+  echo "  * Assumes $b0 is run from UPS area <path>/$PRODUCT" >&2
+  echo "    where <path> is in \$PRODUCTS" >&2
+  echo "  * Assumes GCC has been setup if not native" >&2
+}
+usage() {
+  echo " " >&2
+  echo "Usage:  $b0 [options] <ups-qualifier> (always v1_2_7)" >&2
+  echo "  -h | --help        this message and quit" >&2
+  echo "  -t | --test        don't perform actual actions" >&2
+  echo "  -v | --verbose     increase verbosity" >&2
+  echo "  --show-config      show the configuration" >&2
+}
+current_config() {
+  echo " " >&2
+  echo "Current Settings: PRODUCT=$PRODUCT" >&2
+  echo "<version>='${VERSION}'"     >&2
+  echo "<qualifier>='${QUALIFIER}'" >&2
+  echo "<flavor>='${FLAVOR}'"       >&2
+  echo "ISTEST=${ISTEST} VERBOSE=${VERBOSE}" >&2
+  echo "PRODUCTS=${PRODUCTS}"       >&2
+  echo "will setup $DEPENDPRD $DEPENDVER -q $DEPENDQUAL" >&2
+  if [ "$GCCSETUP" != "native" ]; then
+    echo "will setup gcc $GCCSETUP"
+  fi
+  which gcc >&2
+  gcc --version | head -1 >&2
+}
+
+###############################################################################
+# helper functions
+###############################################################################
+ESC="\e"
+if [ "Darwin" == `uname` ]; then ESC="\x1B"; fi
+OUTRED="${ESC}[0;31m"
+OUTGREEN="${ESC}[0;32m"
+OUTNOC="${ESC}[0m" # No Color
+#echo -e "${OUTRED}Hello Stack${OUTNOC}"
+err_red() {
+  echo -n -e "${OUTRED}" >&2
+}
+err_nocolor() {
+  echo -n -e "${OUTNOC}" >&2
+}
+
+sortqual()
+{
+  # alphabetize the qual components, remove leading/trailing ":"
+  echo $1 | tr ":" "\n" | sort | tr "\n" ":" | sed -e "s/:$//" -e "s/^://"
+}
+
+check_cwd() {
+  # ensure that the product matches the current directory
+  PRDDIR=`basename $HERE`
+  if [ "$PRDDIR" != "$PRODUCT" ]; then
+    echo " " >&2
+    err_red
+    echo "$b0: HEY? working in '$PRDDIR' but skeleton for product '$PRODUCT'?" >&2
+    err_nocolor
+    showusage=1
+    doexit=2
+  fi
+}
+
+check_upsloc() {
+  # ensure that UPS has been enabled for this location
+  # (otherwise other steps might not work) and that the subdir matches product
+  LOCALDB=`dirname $HERE`
+  isthere=`echo $PRODUCTS | grep -c $LOCALDB`
+  # echo "isthere='${isthere}' LOCALDB=$LOCALDB"
+  if [ $isthere -lt 1 ]; then
+    echo " " >&2
+    err_red
+    echo "$b0: HEY? working in " >&2
+    echo "  $HERE " >&2
+    echo "but base path not listed in \$PRODUCTS" >&2
+    echo "     \$PRODUCTS=${PRODUCTS}" >&2
+    echo "that is unlikely to end happily ... so I'll stop here"
+    err_nocolor
+  showpurpose=1
+  showusage=1
+  doexit=3
+  fi
+}
+
+check_depend() {
+  # which gcc ... if dependent on UPS version it should be setup already
+  if [ -n $"SETUP_GCC" ]; then
+    GCCSETUP=`echo ${SETUP_GCC} | tr -s ' ' | cut -d' ' -f2`
+    GCCTABLELINE="setupRequired( gcc ${GCCSETUP} )"
+  else
+    GCCTABLELINE="# using native compiler (not recommended)"
+    echo " " >&2
+    err_red
+    echo "$b0:  HEY? I'm going to have to ask you to setup the appropriate GCC UPS product" >&2
+    err_nocolor
+    showusage=1
+    doexit=3
+  fi
+
+  # pretend this depends (not really) LOG4CPP
+  # we'll use GENIE to get consistency with qualifiers 
+  # (but strip out 'debug' or 'prof'
+  #     (e.g. e9:r5:debug or e9:r5:prof --> e9:r5)
+  DEPEND_SETUP="$SETUP_GENIE"
+  DEPENDPRD="genie"
+  good_depend=1
+
+  DEPENDVER=`echo ${DEPEND_SETUP} | tr -s ' ' | cut -d' ' -f2`
+  DEPENDQUAL=`echo ${DEPEND_SETUP} | tr -s ' ' | cut -d' ' -f8 | sed -e 's/debug//' -e 's/prof//' `
+
+  # check for qualifier mismatch
+  if [ $ALLOWQUALMISMATCH -eq 0 ]; then
+    prdqual=`sortqual $QUALIFIER`
+    depqual=`sortqual $DEPENDQUAL`
+    if [ "$prdqual" != "$depqual" ]; then
+      echo " " >&2
+      err_red
+      echo "$b0: HEY? mismatch qualifiers" >&2
+      echo "  $PRODUCT $QUALIFIER vs. $DEPENDPRD $DEPENDQUAL" >&2
+      echo "  $PRODUCT $prdqual vs. $DEPENDPRD $depqual" >&2
+      err_nocolor
+      good_depend=0
+      showpurpose=1
+      showusage=1
+      doexit=4
+    fi
+  fi
+#  if [ ${good_depend} -eq 0 ]; then
+#    echo " " >&2
+#    err_red
+#    echo "$b0: HEY? dependency should require '${DEPENDPRD}'" >&2
+#    echo "  but that has not been properly setup at this point" >&2
+#    err_nocolor
+#  fi
+
+}
+
+###############################################################################
+# process script args function
+###############################################################################
+#  longarg "::" means optional arg, if not supplied given as null string
+process_args() {
+
+  opterr=/tmp/getopt.err.$$
+
+  TEMP=`getopt -n $b0 -s bash -a \
+      --longoptions="help test verbose qual-mismatch-ok \
+                     flavor: show-config " \
+      -o htvf -- "$@" 2> $opterr `
+  getoptstat=$?
+  eval set --"${TEMP}"
+
+  dohelp=0
+  if [ $getoptstat -ne 0 ]; then
+    showusage=1
+    doexit=1
+    err_red
+    echo " " >&2
+    cat $opterr >&2
+    err_nocolor
+  fi
+  rm $opterr
+
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      "--"               ) shift; break                 ;;
+#      -h | --help        ) showusage=1; showpurpose=1; doexit=0 ;;
+      -h | --help        ) dohelp=1                     ;;
+      -t | --test        ) ISTEST=1                     ;;
+      -v | --verbose     ) let VERBOSE=${VERBOSE}+1     ;;
+      -f | --flavor      ) FLAVOR="$2"; shift           ;;
+      --show-config      ) showconfig=1                 ;;
+      --qual-mismatch-ok ) ALLOWQUALMISMATCH=1          ;;
+    esac
+    shift # eat up this arg
+  done
+
+  if [ $dohelp -ne 0 ]; then
+    doexit=0
+    showpurpose=1
+    showusage=1
+  else
+    # should be at one positional parameter: the QUALIFIER
+    QUALIFIER=$1
+    if [ $# -lt 1 ]; then
+      err_red
+      echo " " >&2
+      echo "$b0: missing <qualifier> parameter" >&2
+      echo " " >&2
+      err_nocolor
+      doexit=1
+      showusage=1
+      showconfig=1
+    fi
+  fi
+
+  # force ordering so that r5:e9 is same as e9:r5
+  prdqual=$QUALIFIER
+  export QUALIFIER=`sortqual $prdqual`
+
+}
+
+###############################################################################
+# main program
+###############################################################################
+
+process_args "$@"
+
+if [ $VERBOSE -gt 0 ]; then
+  echo -e "${OUTGREEN}...done process_args ... start checks ${OUTNOC}"
+fi
+
+check_cwd
+check_upsloc
+check_depend
+
+# flavor still unset?
+if [ -z "$FLAVOR" ]; then
+  FLAVOR=`ups flavor` # for now follow "genie"
+fi
+
+if [ $VERBOSE -gt 0 ]; then
+  echo -e "${OUTGREEN}...cross-checks complete${OUTNOC}"
+fi
+
+# print help/config after parsing everything so that we can see what got set
+if [ $showpurpose -gt 0 ]; then purpose ; fi
+if [ $showusage   -gt 0 ]; then usage   ; fi
+if [ $showconfig  -gt 0 ]; then current_config ; fi
+echo " " >&2
+
+if [ $doexit -ge 0 ]; then 
+  exit $doexit
+fi
+
+if [ $VERBOSE -gt 0 ]; then
+  echo -e "${OUTGREEN}...start processing${OUTNOC}"
+fi
+#
+#
+
+# odd case for .version file if NULL, examples have trailing _
+FLAVORVF=${FLAVOR}
+if [ "$FLAVOR" == "NULL" ]; then FLAVORVF="NULL_"; fi
+if [ -z "$FLAVOR" ]; then 
+  echo "FLAVOR was null -- can not proceed"
+  exit
+fi
+
+QPATH=`echo $QUALIFIER | tr ":" "-" `
+
+#echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+echo "prepare to generate ups framework for"
+echo "   setup ${PRODUCT} ${VERSION} -f ${FLAVOR} -q ${QUALIFIER}"
+#echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+
+for p in ${VERSION}/${FLAVOR}-${QPATH}/ups \
+         ${VERSION}/source \
+         ${VERSION}.version 
+do
+  if [ ! -d $p ]; then mkdir -p $p; fi
+done
+
+tableFile=${VERSION}/${FLAVOR}-${QPATH}/ups/${PRODUCT}.table
+versionFile=${VERSION}.version/${FLAVORVF}
+
+#
+# create the table file
+#
+cat > ${tableFile} <<EOF
+File=Table
+Product=${PRODUCT}
+#*************************************************
+# Starting Group definition
+
+Group:
+
+Flavor=${FLAVOR}
+Qualifiers="${QUALIFIER}"
+
+Common:
+   Action=setup
+      proddir()
+      setupenv()
+#      setupRequired( ${DEPENDPRD}  ${DEPENDVER} -q ${DEPENDQUAL} )
+      ${GCCTABLELINE}
+      envSet(LIBSIGCPP_DIR,    \${UPS_PROD_DIR})
+      envSet(LIBSIGCPP,        \${UPS_PROD_DIR}/${FLAVOR}-${QPATH})
+      envSet(LIBSIGCPP_FQ_DIR, \${UPS_PROD_DIR}/${FLAVOR}-${QPATH})
+      envSet(LIBSIGCPP_LIB,    \${LIBSIGCPP_FQ_DIR}/lib)
+      envSet(LIBSIGCPP_INC,    \${LIBSIGCPP_FQ_DIR}/include)
+      pathAppend(LD_LIBRARY_PATH, \${LIBSIGCPP_FQ_DIR}/lib)
+      pathAppend(PATH,            \${LIBSIGCPP_FQ_DIR}/bin)
+
+End:
+# End Group definition
+#*************************************************
+EOF
+
+#
+# create the version file, if it doesn't exist
+#
+if [ ! -f ${versionFile} ]; then
+cat > ${versionFile} <<EOF
+FILE = version
+PRODUCT = ${PRODUCT}
+VERSION = ${VERSION}
+
+#*************************************************
+EOF
+fi
+
+iam=`whoami`
+if [ "$iam" == "nusoft" ]; then
+  altiam=`klist | grep "Default principal" | cut -d':' -f2 | cut -d'@' -f1 | tr -d ' ' `
+  if [ -n "$altiam" ]; then
+    iam=${altiam}
+    echo "i am \"${iam}\""
+  fi
+fi
+nowGMT=`date -u "+%Y-%m-%d %H:%M:%S"`
+
+nf=`grep QUALIFIERS ${versionFile} | grep -c \"${QUALIFIER}\"`
+if [ $nf -ne 0 ]; then
+  echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+  echo "${versionFile} already has an entry for \"${QUALIFIER}\""
+  echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+  exit 42
+else
+#
+# add this version to the version file
+#
+cat >> ${versionFile} <<EOF
+#
+FLAVOR = ${FLAVOR}
+QUALIFIERS   = "${QUALIFIER}"
+  DECLARER   = ${iam}
+  DECLARED   = ${nowGMT} GMT
+  MODIFIER   = ${iam}
+  MODIFIED   = ${nowGMT} GMT
+  PROD_DIR   = ${PRODUCT}/${VERSION}
+  UPS_DIR    = ${FLAVOR}-${QPATH}/ups
+  TABLE_FILE = ${PRODUCT}.table
+#
+#*************************************************
+EOF
+fi
+
+echo " " >&2
+source `${UPS_DIR}/bin/ups setup libsigcpp $VERSION -f $FLAVOR -q $QUALIFIER`
+cd $LIBSIGCPP_DIR/source
+if [ ! -f libsigc++-1.2.7.tar.gz ]; then
+  curl -O http://ftp.gnome.org/pub/GNOME/sources/libsigc++/1.2/libsigc++-1.2.7.tar.gz
+  tar xzf libsigc++-1.2.7.tar.gz
+fi
+cd ${LIBSIGCPP_FQ_DIR}
+cp -a $LIBSIGCPP_DIR/source/libsigc++-1.2.7 ./build
+cd ./build
+./configure --prefix=${LIBSIGCPP_FQ_DIR}
+make
+make install
+
+# end-of-script

@@ -1,0 +1,245 @@
+#! /usr/bin/env bash
+#
+# create a skeleton UPS setup for minos_config
+#    this provides an area to set some MINOS environment variables
+#
+#       ./make_skeleton <version> [<qualifier>]
+# e.g.  ./make_skeleton v02 
+#
+product="minos_offline"
+version=""           # like "development" RX.YY RX.YY.ZZ SYY-MM-DD-RX-YY
+qual="e9:r5"         # no "debug", "opt", "maxopt", or "prof" 
+flavor="`ups flavor`"   # minefield here ...
+
+if [ -z "$1" ]; then
+  echo "You must supply a version"
+  exit
+fi
+version=$1
+
+# were we invoke with ./script <version> -q <qual> ?
+# eat the "-q"
+if [ "$2" == "-q" ]; then shift ; fi
+
+if [ -n "$2" ]; then qual="$2"; fi
+
+if [ "$3" == "-f" ]; then shift ; fi
+if [ -n "$3" ]; then flavor="$3" ; fi
+
+if [ -z "$flavor" ]; then
+  echo "no flavor supplied, none obtained by \`ups flavor\`"
+  echo "stopping here"
+  exit
+fi
+
+qualdir=`echo ${qual} | tr ':' "-"`
+
+#echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+echo "prepare to generate ups framework for"
+echo "   setup ${product} ${version} -f ${flavor} -q ${qual}"
+#echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+
+for p in ${version}/${flavor}/${qualdir}/ups \
+         ${version}.version
+do
+  if [ ! -d $p ]; then mkdir -p $p; fi
+done
+
+here=`pwd`
+cd ${version}/${flavor}/${qualdir}
+cd $here
+
+tableFile=${version}/${flavor}/${qualdir}/ups/${product}.table
+versionFile=${version}.version/${flavor}_${qualdir}
+
+#
+# create the table file
+#
+if [ ! -f ${tableFile} ]; then
+cat > ${tableFile} <<EOF
+File=Table
+Product=${product}
+#*************************************************
+# Starting Group definition
+
+Group:
+
+# should these be UPS_REQ_QUALIFIERS vs UPS_PROD_QUALIFIERS?
+#
+#  dk2nu pulls in:  genie v2_12_2
+#     SetupRequired(genie v2_12_2    -q \${UPS_PROD_QUALIFIERS}:\${_UPS_QUAL})
+#  genie pulls in:  root, gcc, pythia6, libxml2, log4cpp, lhapdf, pdfsets
+#                   mysql_client, clhep, gsl
+#  then we also need Geant4
+
+  Flavor=${flavor}
+  Qualifiers="${qual}:debug"
+   Action=extrasetup
+     envSet(_SRT_QUAL,"SRT_QUAL=${qualdir}-debug")
+     envSet(_UPS_QUAL,"debug")
+     envSet(MINOS_CXX,"GCC_4_9")
+     SetupRequired(dk2nu  v01_04_01g  -q \${UPS_PROD_QUALIFIERS}:debug)
+     SetupRequired(geant4 v4_10_1_p03 -q \${UPS_PROD_QUALIFIERS}:debug)
+
+  Flavor=${flavor}
+  Qualifiers="${qual}:opt"
+   Action=extrasetup
+     envSet(_SRT_QUAL,"SRT_QUAL=${qualdir}-maxopt")
+     envSet(_UPS_QUAL,"prof")
+     envSet(MINOS_CXX,"GCC_4_9")
+     SetupRequired(dk2nu  v01_04_01g  -q \${UPS_PROD_QUALIFIERS}:prof)
+     SetupRequired(geant4 v4_10_1_p03 -q \${UPS_PROD_QUALIFIERS}:prof)
+
+  Flavor=${flavor}
+  Qualifiers="${qual}:optroot"
+   Action=extrasetup
+     envSet(_SRT_QUAL,"SRT_QUAL=${qualdir}-debug")
+     envSet(_UPS_QUAL,"prof")
+     envSet(MINOS_CXX,"GCC_4_9")
+     SetupRequired(dk2nu  v01_04_01g  -q \${UPS_PROD_QUALIFIERS}:prof)
+     SetupRequired(geant4 v4_10_1_p03 -q \${UPS_PROD_QUALIFIERS}:prof)
+
+Common:
+   Action=setup
+      proddir()
+      setupenv()
+### flavor/qualifier specific
+      ExeActionRequired(extrasetup)
+      ### this __has__ to be version 1.2.7
+      ### MINOS code has not been adapted for v2_Y_Z
+      SetupRequired(libsigcpp v1_2_7 -q \${UPS_PROD_QUALIFIERS})
+
+      SetupRequired(ifdhc)
+      SetupRequired(ifbeam)
+     
+###   force 64bit build flag
+#
+      envSet(MINOS_TRY64,1)
+
+# fix mis-match between UPS variables and what MINOS build expects
+      envSet(LOG4CPP,\${LOG4CPP_FQ_DIR})
+      envSet(LIBXML2,\${LIBXML2_FQ_DIR})
+      envSet(PYTHIA6,\${PYTHIA_FQ_DIR})
+      envSet(LHAPDF,\${LHAPDF_FQ_DIR})
+      envSet(MYSQL_DIR,\${MYSQL_CLIENT_FQ_DIR})
+      envSet(SIGC_DIR,\${LIBSIGCPP_FQ_DIR})
+
+      SetupRequired(sam_web_client)
+      envSet(SAM_EXPERIMENT,"minos");
+
+# prepare SRT
+      #execute("echo UPS_PROD_DIR=\${UPS_PROD_DIR}",UPS_ENV)
+      #execute("echo UPS_THIS_DB=\${UPS_THIS_DB}",UPS_ENV)
+      #!!!!!!  Assumption !!!!!!!!
+      # this UPS product area with minos_offline is under the SRT_DIST area
+      envSet(SRT_DIST,\`dirname \${UPS_THIS_DB}\`)
+      # execute("echo source \${SRT_DIST}/srt/srt.\${UPS_SHELL}",UPS_ENV)
+      execute("source \${SRT_DIST}/srt/srt.\${UPS_SHELL}",UPS_ENV)
+      # execute("echo srt_setup --unsetup",UPS_ENV)
+      execute("srt_setup --unsetup",UPS_ENV)
+
+### do actual SRT setup of base release
+#
+   execute("echo srt_setup SRT_BASE_RELEASE=\${UPS_PROD_VERSION} SRT_CXX=\${MINOS_CXX} \${_SRT_QUAL}",UPS_ENV)
+   execute("     srt_setup SRT_BASE_RELEASE=\${UPS_PROD_VERSION} SRT_CXX=\${MINOS_CXX} \${_SRT_QUAL}",NO_UPS_ENV)
+
+
+### set common env variables (also reports status)
+#
+      SetupRequired(minos_config v02 -q default)
+
+# msrt + migrate_release available
+      pathAppend(PATH,${SRT_DIST}/setup)
+
+### remove any temporaries
+#
+      envUnSet(_SRT_QUAL)
+
+###     setup -j libsigcpp v2_2_11 -q e4:debug # -j is important
+###     export INSTALLATION=$SRT_DIST/../INSTALLATION
+###     export LIBSIGCPP_FQ_DIR=$INSTALLATION
+
+
+
+
+End:
+# End Group definition
+#*************************************************
+EOF
+else
+  echo "!!!!!  ${tableFile} exists, will not overwrite -- you must hand edit to add \"${qual}\""
+fi
+
+#
+# create the version file, if it doesn't exist
+#
+if [ ! -f ${versionFile} ]; then
+cat > ${versionFile} <<EOF
+FILE = version
+PRODUCT = ${product}
+VERSION = ${version}
+
+#*************************************************
+EOF
+fi
+
+iam=`whoami`
+if [ "$iam" == "nusoft" ]; then
+  altiam=`klist | grep "Default principal" | cut -d':' -f2 | cut -d'@' -f1 | tr -d ' ' `
+  if [ -n "$altiam" ]; then
+    iam=${altiam}
+    echo "i am \"${iam}\""
+  fi
+fi
+nowGMT=`date -u "+%Y-%m-%d %H:%M:%S"`
+
+nf=`grep QUALIFIERS ${versionFile} | grep -c \"${qual}\"`
+if [ $nf -ne 0 ]; then
+  echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+  echo "${versionFile} already has an entry for \"${qual}\""
+  echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+else
+#
+# add this version to the version file
+#
+cat >> ${versionFile} <<EOF
+#
+FLAVOR = ${flavor}
+QUALIFIERS   = "${qual}:debug"
+  DECLARER   = ${iam}
+  DECLARED   = ${nowGMT} GMT
+  MODIFIER   = ${iam}
+  MODIFIED   = ${nowGMT} GMT
+  PROD_DIR   = ${product}/${version}/${flavor}/${qualdir}
+  UPS_DIR    = ups
+  TABLE_FILE = ${product}.table
+#
+#*************************************************
+#
+FLAVOR = ${flavor}
+QUALIFIERS   = "${qual}:opt"
+  DECLARER   = ${iam}
+  DECLARED   = ${nowGMT} GMT
+  MODIFIER   = ${iam}
+  MODIFIED   = ${nowGMT} GMT
+  PROD_DIR   = ${product}/${version}/${flavor}/${qualdir}
+  UPS_DIR    = ups
+  TABLE_FILE = ${product}.table
+#
+#*************************************************
+#
+FLAVOR = ${flavor}
+QUALIFIERS   = "${qual}:optroot"
+  DECLARER   = ${iam}
+  DECLARED   = ${nowGMT} GMT
+  MODIFIER   = ${iam}
+  MODIFIED   = ${nowGMT} GMT
+  PROD_DIR   = ${product}/${version}/${flavor}/${qualdir}
+  UPS_DIR    = ups
+  TABLE_FILE = ${product}.table
+#
+#*************************************************
+EOF
+fi
+
+# end-of-script
