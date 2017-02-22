@@ -400,8 +400,9 @@ Common:
       envSet(DK2NU_FQ_DIR, \${UPS_PROD_DIR}/${FLAVOR}-${QPATH})
       envSet(DK2NU_LIB,    \${DK2NU_FQ_DIR}/lib)
       envSet(DK2NU_INC,    \${DK2NU_FQ_DIR}/include)
-      pathAppend(LD_LIBRARY_PATH, \${DK2NU_FQ_DIR}/lib)
-      pathAppend(PATH,            \${DK2NU_FQ_DIR}/bin)
+      pathAppend(LD_LIBRARY_PATH,  \${DK2NU_FQ_DIR}/lib)
+      pathAppend(PATH,             \${DK2NU_FQ_DIR}/bin)
+      pathAppend(ROOT_INCLUDE_PATH,\${DK2NU_FQ_DIR}/include)
 
 End:
 # End Group definition
