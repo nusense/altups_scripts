@@ -7,7 +7,7 @@
 # e.g.  ./make_skeleton v3665 dkcharmtau
 #
 product="genie_phyopt"
-version=""         # like v3665
+version=""         # like v2_9_0
 qual="dkcharmtau"  # use something else for special cases (modified MA, etc)
 flavor="NULL"      # UserPhysicsOptions.xml file don't depend on OS flavor
 
@@ -40,12 +40,12 @@ done
 # product or a starting point for further modifications
 here=`pwd`
 cd ${version}/${flavor}/${qual}
-echo ln -s ../../../make_dkcharmtau_phyopt .
-ln -s ../../../make_dkcharmtau_phyopt .
+echo ln -s ../../../make_phyopt_dkcharmtau .
+ln -s ../../../make_phyopt_dkcharmtau .
 cd $here
 
 tableFile=${version}/${flavor}/${qual}/ups/${product}.table
-versionFile=${version}.version/${flavorvf}
+versionFile=${version}.version/${flavor}_${qual}
 
 #
 # create the table file

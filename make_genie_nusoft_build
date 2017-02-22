@@ -35,7 +35,7 @@ usage() {
 GSPLOAD_SAVE=$GSPLOAD
 here=`pwd`
 
-TEMP=`getopt -n ${whatami} -s bash -a --longoptions="help clean config make opt vle no-vle lowlevel targets: with-compiler:" -o ?hcClmfesv -- "$@"`
+TEMP=`getopt -n ${whatami} -s bash -a --longoptions="help clean config make opt vle vhe no-vle no-vhe lowlevel targets: with-compiler:" -o ?hcClmfesv -- "$@"`
 if [ $? != 0 ] ; then
   echo "Usage: ${whatami} [-c] [-C] " >&2
 fi

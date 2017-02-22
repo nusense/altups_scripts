@@ -10,8 +10,8 @@
 #    cd $GENIEPHYOPTPATH
 #    ./make_dkcharmtau_phyopt
 #         --force
-#         --docharm=[0|1]
-#         --dotau=[0|1]
+#         --charm=[0|1]
+#         --tau=[0|1]
 #
 
 b0=`basename $0`
@@ -21,7 +21,7 @@ force=0
 dohelp=0
 
 TEMP=`getopt -n $b0 -s bash -a \
-    --longoptions="help force charm: tau:" \
+    --longoptions="help force docharm: charm: dotau: tau:" \
     -o h -- "$@" `
 eval set -- "${TEMP}"
 while [ $# -gt 0 ]; do
@@ -29,8 +29,8 @@ while [ $# -gt 0 ]; do
     "--"               ) shift;      break ;;
     -h | --help        ) dohelp=1          ;;
     --force            ) force=1           ;;
-    --charm            ) docharm=$2; shift ;;
-    --tau              ) dotau=$2;   shift ;;
+    --*charm           ) docharm=$2; shift ;;
+    --*tau             ) dotau=$2;   shift ;;
   esac
   shift # eat up this arg
 done

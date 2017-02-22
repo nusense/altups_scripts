@@ -270,9 +270,9 @@ process_args() {
       showconfig=1
     fi
     if [ $# -eq 3 ]; then
-      export SVNBASE="dk2nu/tags/$3"
+      export SVNBASE="xyzzy/tags/$3"
       svntaglist=/tmp/svntaglist.$$
-      svn list ${SVNPUB}/dk2nu/tags | tr -d '/' > ${svntaglist}
+      svn list ${SVNPUB}/xyzzy/tags | tr -d '/' > ${svntaglist}
       svntags=`cat ${svntaglist}`
       found=0
       for t in $svntags
@@ -286,7 +286,7 @@ process_args() {
       else
         err_red
         echo " " >&2
-        echo "$b0: tag $3 not found in SVN ${SVNPUB}/dk2nu/tags:"
+        echo "$b0: tag $3 not found in SVN ${SVNPUB}/xyzzy/tags:"
         cat $svntaglist
         echo " " >&2
         err_nocolor
@@ -476,7 +476,7 @@ if [ "$CHECKOUT" == "true" -o "$CHECKOUT" == "ssh" ]; then
   # setup == source `$UPS_DIR/bin/ups setup <args>`
   #     'ups setup' creates a script that must be sourced
   source `${UPS_DIR}/bin/ups setup dk2nu $VERSION -f $FLAVOR -q $QUALIFIER`
-  cd $DK2NU_DIR
+  cd $GEANT4_DIR
   echo "starting checkout, currently in:"
   echo "   `pwd`"
   echo svn checkout $FULLSVNPATH > svn.checkout.log 2>&1

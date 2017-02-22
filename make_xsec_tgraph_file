@@ -5,6 +5,10 @@ export GQ=$2
 export GXSECVER=$3
 export GXSECQ=$4
 
+if [ "$1" == "nosetup" ]; then
+  echo ".... no setup ... accept things as are ..."
+else
+
 if [ -z "$GVER" ]; then 
   echo "no genie version supplied"
   exit
@@ -30,6 +34,8 @@ else
   setup genie      $GVER     -q $GQ
   setup genie_xsec $GXSECVER -q $GXSECQ
 fi
+
+fi  # nosetup
 
 export OLDSTYLE=0
 if [ -z "$GENIEXSECFILE" -o ! -f "$GENIEXSECFILE" ]; then

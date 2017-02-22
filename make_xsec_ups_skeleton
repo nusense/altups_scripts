@@ -4,7 +4,7 @@
 #
 #
 product="genie_xsec"
-version=""      # like v3665
+version=""      # like v2_9_0
 flavor="NULL"   # x-sec file don't depend on OS flavor
 qual="default"  # use something else for special cases (modified MA, etc)
 
@@ -34,7 +34,7 @@ do
 done
 
 tableFile=${version}/${flavor}/${qual}/ups/${product}.table
-versionFile=${version}.version/${flavorvf}
+versionFile=${version}.version/${flavor}_${qual}
 
 #
 # create the table file
