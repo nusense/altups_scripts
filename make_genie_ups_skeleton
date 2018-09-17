@@ -9,7 +9,7 @@ export SVNREV=""    # SVN tag or revision e.g. HEAD, R-2_8_0 or 3665
 export SVNFULLPATH="no-checkout"
 export SVNUSER=`who am i | cut -d' ' -f1`
 export CHECKOUT="yes"
-export FLAVOR=`ups flavor`    # 
+export FLAVOR=`ups flavor`    #
 export VERBOSE=0
 
 export showusage=0
@@ -233,13 +233,13 @@ process_args() {
       -v | --verbose     ) let VERBOSE=${VERBOSE}+1     ;;
       -t | --test        ) let istest=1                 ;;
       --show-config      ) showconfig=1                 ;;
-      --checkout         ) 
+      --checkout         )
         # optional parameter, if unset returns "" ... take that as true
         export checkoutopt=$2; shift;
-        if [ $VERBOSE -gt 0 ]; then 
+        if [ $VERBOSE -gt 0 ]; then
           echo -e "${OUTGREEN} checkoutopt=${checkoutopt} ${OUTNOC}"
         fi
-        case "$checkoutopt" in 
+        case "$checkoutopt" in
           ""                                          ) CHECKOUT="true"  ;;
           true  | TRUE  | True  | on  | ON  | On  | 1 ) CHECKOUT="true"  ;;
           yes   | YES   | Yes                         ) CHECKOUT="true"  ;;
@@ -249,7 +249,7 @@ process_args() {
           *                                           )
              err_red
              echo " " >&2
-             echo "$b0: --checkout flag '$CHECKOUTOPT' unrecognizable" >&2 
+             echo "$b0: --checkout flag '$CHECKOUTOPT' unrecognizable" >&2
              echo " " >&2
              showusage=1
              doexit=1
@@ -280,11 +280,11 @@ process_args() {
     SVNREV=$3
     nexpect=3
     expectargs="<version>, <qualifier> and/or <svnrev>"
-    if [ "${CHECKOUT}" == "false" ]; then 
+    if [ "${CHECKOUT}" == "false" ]; then
       nexpect=2
       expectargs="<version> and/or <qualifier>"
     fi
-    if [ $VERBOSE -gt 0 ]; then 
+    if [ $VERBOSE -gt 0 ]; then
      echo -e "${OUTGREEN} narg=$# nexpect=$nexpect CHECKOUT=${CHECKOUT} ${OUTNOC}"
     fi
     if [ $# -lt $nexpect ]; then
@@ -304,20 +304,22 @@ process_args() {
 
 setfullsvnpath() {
 # build URL for checkout (possibly w/ -r flag)
-# svn co http://genie.hepforge.org/svn/generator/trunk local_directory 
-# svn co http://genie.hepforge.org/svn/generator/branches/genie_tag local_directory 
-# svn co svn+ssh://username@svn.hepforge.org/hepforge/svn/genie/generator/trunk local_directory 
+# svn co http://genie.hepforge.org/svn/generator/trunk local_directory
+# svn co http://genie.hepforge.org/svn/generator/branches/genie_tag local_directory
+# svn co svn+ssh://username@svn.hepforge.org/hepforge/svn/genie/generator/trunk local_directory
   if [ "${CHECKOUT}" == "false" ]; then return ; fi
   if [ "${CHECKOUT}" == "ssh"   ]; then
      # special case for writablility
     SVNFULLPATH="svn+ssh://${SVNUSER}@svn.hepforge.org/hepforge/svn/genie/generator"
+#soon    SVNFULLPATH="svn+ssh://${SVNUSER}@genie.hepforge.org/repo/generator"
   else
     SVNFULLPATH="http://genie.hepforge.org/svn/generator"
+#soon    SVNFULLPATH="https://genie.hepforge.org/repo/generator"
   fi
   # now decide HEAD or branch; all digits = revision # off trunk
   nondigits=`echo $SVNREV | tr -d '[0-9]'`
   SVNSUB="blah"
-  if [ -z "$nondigits" ]; then 
+  if [ -z "$nondigits" ]; then
     SVNSUB="trunk -r $SVNREV"
   elif [ "$SVNREV" == "HEAD" -o "$SVNREV" == "trunk" ]; then
     SVNSUB="trunk"
@@ -327,8 +329,10 @@ setfullsvnpath() {
     # some branches hidden from normal users
     HTTP="http"
     if [ "$CHECKOUT" == "ssh" ]; then HTTP="https" ; fi
-    svn list ${HTTP}://genie.hepforge.org/svn/generator/branches | \
-             tr -d '/' > ${svntaglist}
+#    svn list ${HTTP}://genie.hepforge.org/svn/generator/branches | \
+#             tr -d '/' > ${svntaglist}
+     svn list svn+ssh://${SVNUSER}@svn.hepforge.org/hepforge/svn/genie/generator/branches | tr -d '/' > ${svntaglist}
+#soon ??? 
 
     found=`grep -c ${SVNREV} ${svntaglist}`
     if [ $found -eq 1 ]; then
@@ -344,11 +348,11 @@ setfullsvnpath() {
     fi
   fi
   SVNFULLPATH="${SVNFULLPATH}/${SVNSUB}"
-  if [ $VERBOSE -gt 0 ]; then 
+  if [ $VERBOSE -gt 0 ]; then
     echo -e "${OUTGREEN} SVNFULLPATH=${SVNFULLPATH} found=$found nondigits=$nondigits ${OUTNOC}"
   fi
 
-if [ $VERBOSE -gt 0 ]; then 
+if [ $VERBOSE -gt 0 ]; then
 echo -e "${OUTGREEN} end of setfullsvnpath SVNFULLPATH=${SVNFULLPATH} ${OUTNOC}"
 fi
 
@@ -384,7 +388,7 @@ if [ $showusage   -gt 0 ]; then usage   ; fi
 if [ $showconfig  -gt 0 ]; then current_config ; fi
 echo " " >&2
 
-if [ $doexit -ge 0 ]; then 
+if [ $doexit -ge 0 ]; then
   exit $doexit
 fi
 
@@ -420,7 +424,7 @@ do
   if [ ! -d $p ]; then mkdir -p $p; fi
 done
 
-# 
+#
 # check out GENIE from the repository
 #
 if [ "$CHECKOUT" != "false" ]; then
@@ -477,7 +481,7 @@ Group:
   Qualifiers="${QUALIFIER}"
 
   # Can't assume root, pythia, lhapdf, libxml2, log4cpp, gsl and gcc
-  # associated with the base release are still there after 
+  # associated with the base release are still there after
   # setting up this product because it will clear dependent
   # products unless one uses the "-j" option
   # The following setups won't work if one uses the -z <upsdbdir>
