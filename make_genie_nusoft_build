@@ -105,12 +105,16 @@ export LOG4CPP_INC=${LOG4CPP_FQ_DIR}/include
 export LOG4CPP_LIB=${LOG4CPP_FQ_DIR}/lib
 
 
-   setprefix=""
+   MYPREFIX=/var/tmp/rhatcher/GENIE_INSTALL
+   setprefix="--prefix=${MYPREFIX}"
+   if [  ! -d ${MYPREFIX} ]; then
+     mkdir -p ${MYPREFIX}
+   fi
 #   minosstuff="--enable-minos-evserv"
    minosstuff="--enable-event-server --enable-numi --enable-fnal"
     novastuff=" "
 #
-   cfg=" $setprefix $minosstuff $novastuff" 
+   cfg=" $setprefix $minosstuff $novastuff"
    if [[ "x${compiler}" != "x" ]] ; then
      cfg="$cfg --with-compiler=${compiler}"
    fi
@@ -135,7 +139,7 @@ export LOG4CPP_LIB=${LOG4CPP_FQ_DIR}/lib
      cfg="$cfg --with-optimiz-level=O3"
    fi
 #   cfg="$cfg --with-cern-lib=$CERN_DIR/lib"
-   cfg="$cfg --enable-lhapdf" 
+   cfg="$cfg --enable-lhapdf"
    cfg="$cfg --with-lhapdf-inc=${LHAPDF_INC}"
    cfg="$cfg --with-lhapdf-lib=${LHAPDF_LIB}"
    cfg="$cfg --with-pythia6-lib=$PYTHIA6_DIR/lib"
@@ -150,7 +154,7 @@ export LOG4CPP_LIB=${LOG4CPP_FQ_DIR}/lib
    echo ./configure $cfg
    rm -f do_configure.log
    echo ./configure $cfg > do_configure.log 2>&1
-   echo " =============" >> do_configure.log 2>&1 
+   echo " =============" >> do_configure.log 2>&1
    ./configure $cfg >> do_configure.log 2>&1
 fi
 
@@ -166,4 +170,3 @@ fi
 
 #return 0
 exit
-
