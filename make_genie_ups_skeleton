@@ -310,8 +310,8 @@ setfullsvnpath() {
   if [ "${CHECKOUT}" == "false" ]; then return ; fi
   if [ "${CHECKOUT}" == "ssh"   ]; then
      # special case for writablility
-    SVNFULLPATH="svn+ssh://${SVNUSER}@svn.hepforge.org/hepforge/svn/genie/generator"
-#soon    SVNFULLPATH="svn+ssh://${SVNUSER}@genie.hepforge.org/repo/generator"
+     # post-phabricator change over
+     SVNFULLPATH="svn+ssh://vcs@phab.hepforge.org/source/geniesvn/generator"
   else
     SVNFULLPATH="http://genie.hepforge.org/svn/generator"
 #soon    SVNFULLPATH="https://genie.hepforge.org/repo/generator"
@@ -329,11 +329,9 @@ setfullsvnpath() {
     # some branches hidden from normal users
     HTTP="http"
     if [ "$CHECKOUT" == "ssh" ]; then HTTP="https" ; fi
-#    svn list ${HTTP}://genie.hepforge.org/svn/generator/branches | \
-#             tr -d '/' > ${svntaglist}
-     svn list svn+ssh://${SVNUSER}@svn.hepforge.org/hepforge/svn/genie/generator/branches | tr -d '/' > ${svntaglist}
-#soon ??? 
-
+     # post-phabricator
+     svn+ssh://vcs@phab.hepforge.org/source/geniesvn/generator/branches
+             tr -d '/' > ${svntaglist}
     found=`grep -c ${SVNREV} ${svntaglist}`
     if [ $found -eq 1 ]; then
       SVNSUB="branches/$SVNREV"
