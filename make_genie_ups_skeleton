@@ -6,7 +6,7 @@ export PRODUCT=genie
 export VERSION=""   # UPS version name e.g. my280alt
 export QUALIFIER="" # UPS qualifer flags e.g. e5:debug
 export GITREV=""    # git tag or revision e.g. HEAD, R-2_8_0 or 3665
-export GITFULLPATH="https://github.com/GENIE-MC/Generator.git"
+export GITPATH="https://github.com/GENIE-MC"
 export GITUSER=`who am i | cut -d' ' -f1`
 export CHECKOUT="yes"
 export FLAVOR=`ups flavor`    #
@@ -354,7 +354,6 @@ HERE=`pwd`
 
 qualnocolon=`echo ${QUALIFIER} | tr ':' '-' `
 flvqual="${FLAVOR}-${qualnocolon}"
-gittop=GENIE_${VERSION}
 
 for p in ${VERSION} \
          ${VERSION}/${flvqual}/ups \
@@ -367,57 +366,71 @@ done
 #
 # check out GENIE from the repository
 #
-if [ "$CHECKOUT" != "false" ]; then
-  cd ${VERSION}/${flvqual}
-  if [ ! -d ${gittop} ]; then
-    echo "GIT check out of GENIE might take a while ... please be patient"
-    echo git clone ${GITFULLPATH} ${gittop}
-         git clone ${GITFULLPATH} ${gittop} > ${gittop}.git_checkout.log 2>&1
-    if [ ! -d ${gittop} ]; then
-      echo "YIKES:  failed to check out release ... exit early"
-      exit
-    else
-      cd ${gittop}
-      if [[ -z "${GITREV}" || "${GITREV}" == "HEAD" ]]; then
-        echo -e "${OUTGREN}leaving git checkout at default (GITREV=${GITREV})${OUTNOCOL}"
+for REPO in Generator Reweight ; do
+  cd ${HERE}/${VERSION}/${flvqual}
+  GITFULLPATH=${GITPATH}/${REPO}.git
+  repotop=${REPO}_${VERSION}
+  if [ ${REPO} == "Generator" ]; then gittop_gen=${repotop} ; fi
+  if [ ${REPO} == "Reweight"  ]; then gittop_rwt=${repotop} ; fi
+
+  if [ "$CHECKOUT" != "false" ]; then
+    if [ ! -d ${repotop} ]; then
+      echo "GIT check out of GENIE might take a while ... please be patient"
+      echo git clone ${GITFULLPATH} ${repotop}
+           git clone ${GITFULLPATH} ${repotop} > ${repotop}.checkout.log 2>&1
+      if [ ! -d ${repotop} ]; then
+        echo "YIKES:  failed to check out release ... exit early"
+        exit
       else
-        taglist=`git tag -l`
-        branchlist=`git branch -a`
-        found=0
-        for rev in ${branchlist} ${taglist} ; do
-          if [ "${rev}" == "${GITREV}" ]; then
-            found=1
-            echo -e "${OUTPURPLE}git checkout ${GITREV}${OUTNOCOL}"
-            git checkout ${GITREV} >> ../${gittop}.git_checkout.log 2>&1
-            break
-          fi
-        done
-        if [ ${found} -eq 0 ]; then
+        cd ${repotop}
+        if [[ -z "${GITREV}" || "${GITREV}" == "HEAD" ]]; then
+          echo -e "${OUTGREN}leaving git checkout at default (GITREV=${GITREV})${OUTNOCOL}"
+        else
+          taglist=`git tag -l`
+          branchlist=`git branch -a`
+          found=0
+          for rev in ${branchlist} ${taglist} ; do
+            if [ "${rev}" == "${GITREV}" ]; then
+              found=1
+              echo -e "${OUTPURPLE}git checkout ${GITREV}${OUTNOCOL}"
+              git checkout ${GITREV} >> ../${repotop}.checkout.log 2>&1
+              break
+            fi
+          done
+          if [ ${found} -eq 0 ]; then
             echo -e "${OUTRED}======================================${OUTNOCOL}"
             echo -e "${OUTRED}git checkout ${GITREV} not possible${OUTNOCOL}"
             echo -e "${OUTRED}======================================${OUTNOCOL}"
+          fi
         fi
       fi
-    fi
-  else
-    echo -e "${OUTRED} it appears GENIE is already checked out from GIT ${OUTNOC}"
-    echo -e "${OUTRED} if you need it update you'll have to do that by hand ${OUTNOC}"
-  fi
-fi
+    else # directory exists
+      echo -e "${OUTRED} it appears GENIE is already checked out from GIT ${OUTNOC}"
+      echo -e "${OUTRED} if you need it update you'll have to do that by hand ${OUTNOC}"
+    fi   # directory exists (checked out already)
+  fi   # to be checked out?
+done # loop over Generator & Reweight
 
-INSIDE=${HERE}/${VERSION}/${flvqual}/${gittop}
+
+INSIDE=${HERE}/${VERSION}/${flvqual}/${gittop_gen}
 if [ -d $INSIDE ]; then
   cd $INSIDE
   if [ ! -d lib ]; then mkdir lib ; fi
   if [ ! -d bin ]; then mkdir bin ; fi
 fi
+
 cd ${HERE}/${VERSION}/${flvqual}
-if [ ! -L make_genie_nusoft_build ]; then ln -s ../../make_genie_nusoft_build . ; fi
-if [ ! -L lib ]; then ln -s ${gittop}/lib . ; fi
-if [ ! -L bin ]; then ln -s ${gittop}/bin . ; fi
-cd include
-if [ ! -L GENIE ]; then ln -s ../${gittop}/src GENIE ; fi
-cd ..
+if [ ! -L make_genie_nusoft_build ]; then
+    ln -s ../../make_genie_nusoft_build .
+fi
+
+mkdir lib
+mkdir bin
+#if [ ! -L lib ]; then ln -s ${gittop}/lib . ; fi
+#if [ ! -L bin ]; then ln -s ${gittop}/bin . ; fi
+#cd include
+#if [ ! -L GENIE ]; then ln -s ../${gittop}/src GENIE ; fi
+#cd ..
 
 cd $HERE
 
@@ -468,8 +481,9 @@ Common:
       setupEnv()
       prodDir()
       envSet(GENIE_FQ,\${UPS_PROD_FLAVOR}-${qualnocolon})
-      envSet(GENIE,\${UPS_PROD_DIR}/\${GENIE_FQ}/${gittop})
       envSet(GENIE_FQ_DIR,\${UPS_PROD_DIR}/\${GENIE_FQ})
+      envSet(GENIE,\${GENIE_FQ_DIR}/${gittop_gen})
+      envSet(GENIE_REWEIGHT,\${GENIE_FQ_DIR}/${gittop_rwt})
       envSet(GENIE_VERSION, \${UPS_PROD_VERSION})
       prodDir( _INC, \${GENIE_FQ}/include )
       prodDir( _LIB, \${GENIE_FQ}/lib )
