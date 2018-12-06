@@ -400,6 +400,7 @@ for REPO in Generator Reweight ; do
           if [ ${found} -eq 0 ]; then
             echo -e "${OUTRED}======================================${OUTNOCOL}"
             echo -e "${OUTRED}git checkout ${GITREV} not possible${OUTNOCOL}"
+            echo -e "${OUTGREEN}   but moving on${OUTNOCOL}"
             echo -e "${OUTRED}======================================${OUTNOCOL}"
           fi
         fi
@@ -412,6 +413,8 @@ for REPO in Generator Reweight ; do
 done # loop over Generator & Reweight
 
 
+echo -e "${OUTPURPLE}======================================${OUTNOCOL}"
+echo -e "${OUTPURPLE}making ups kruft${OUTNOCOL}"
 INSIDE=${HERE}/${VERSION}/${flvqual}/${gittop_gen}
 if [ -d $INSIDE ]; then
   cd $INSIDE
@@ -490,6 +493,11 @@ Common:
       pathPrepend( LD_LIBRARY_PATH, \${UPS_PROD_DIR}/\${GENIE_FQ}/lib )
       pathPrepend( PATH, \${UPS_PROD_DIR}/\${GENIE_FQ}/bin )
       exeActionRequired(ExtraSetup)
+      # useful variables
+      envPrepend(ROOT_INCLUDE_PATH, \${GENIE_INC} )
+      envPrepend(ROOT_INCLUDE_PATH, \${GENIE_INC}/GENIE )
+      envPrepend(CMAKE_PREFIX_PATH, \${GENIE_FQ_DIR} )
+      envPrepend(PKG_CONFIG_PATH, \${GENIE_FQ_DIR} )
 
 End:
 # End Group definition
