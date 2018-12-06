@@ -1,6 +1,7 @@
 #! /usr/bin/env bash
 #
-# create the UserPhysicsOptions.xml for this version of GENIE
+# create the UserPhysicsOptions.xml      for GENIE R-2
+# create the UnstableParticleDecayer.xml for GENIE R-3
 #
 # need both "genie" and "genie_phyopt" setup (and consistent)
 #
@@ -20,6 +21,9 @@ dotau=1
 force=0
 dohelp=0
 
+#phyoptfile=UserPhysicsOptions.xml
+phyoptfile=UnstableParticleDecayer.xml
+
 TEMP=`getopt -n $b0 -s bash -a \
     --longoptions="help force docharm: charm: dotau: tau:" \
     -o h -- "$@" `
@@ -38,8 +42,8 @@ done
 if [ $dohelp -ne 0 ]; then
   cat >&2 <<EOF
 
-Purpose: create a UserPhysicsOptions.xml that forces the
-         decay of charm and/or tau particles in GENIE
+Purpose: create a UserPhysicsOptions.xml or UnstableParticleDecayer.xml
+         that forces the decay of charm and/or tau particles in GENIE
 
 Usage: ${b0} [flags]
   -h | --help       this message and quit
@@ -53,7 +57,7 @@ fi
 
 export ISTRUEVAL=0
 istrue() {
-  case "$1" in 
+  case "$1" in
     true  | TRUE  | True  | on  | ON  | On  | 1 ) ISTRUEVAL=1  ;;
     yes   | YES   | Yes                         ) ISTRUEVAL=1  ;;
     false | FALSE | False | off | OFF | Off | 0 ) ISTRUEVAL=0  ;;
@@ -74,8 +78,13 @@ dotau=$ISTRUEVAL
 geniev=`echo ${SETUP_GENIE} | cut -d' ' -f2`
 phyoptv=`echo ${SETUP_GENIE_PHYOPT} | cut -d' ' -f2`
 
+genievmajor=`echo ${geniev} | cut -c2`
+if [ ${genievmajor} -eq 2 ]; then
+  phyoptfile=UserPhysicsOptions.xml
+fi
 
 echo "versions: genie \"${geniev}\"  genie_phyopt \"${phyoptv}\""
+echo "modify:   ${phyoptfile}"
 if [ ${force} -eq 0 ]; then
   if [ "${geniev}" != "${phyoptv}" ]; then
     echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
@@ -85,7 +94,6 @@ if [ ${force} -eq 0 ]; then
   fi
 fi
 
-phyoptfile=UserPhysicsOptions.xml
 sedscript=dkcharmtau.sed
 
 if [ -f ${phyoptfile} ]; then

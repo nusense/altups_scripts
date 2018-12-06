@@ -12,7 +12,7 @@ doconfig=no
 domake=no
 verbose=no
 doopt=no
-dovle=yes
+#dovle=yes
 dolowlevel=no
 targets="all"
 compiler="gcc"
@@ -24,8 +24,8 @@ usage() {
   echo "   -m:         make genie          [$domake]    " >&2
   echo "   -v:         verbose             [$doverbose] " >&2
   echo "   --opt       optimized           [$doopt]     " >&2
-  echo "   --vle:      enable-vle          [$dovle]     " >&2
-  echo "   --no-vle:   disable-vle                      " >&2
+#  echo "   --vle:      enable-vle          [$dovle]     " >&2
+#  echo "   --no-vle:   disable-vle                      " >&2
   echo "   --lowlevel: lowlevel-mesg       [$dolowlevel]" >&2
   echo "   --targets=<target>              [$targets]   " >&2
   echo "   --with-compiler: gcc/clang      [$compiler]  " >&2
@@ -50,8 +50,8 @@ do
     -m | --make     ) domake=yes     ;;
     -v              ) verbose=yes    ;;
     --opt           ) doopt=yes      ;;
-    --vle           ) dovle=yes      ;;
-    --no-vle        ) dovle=no       ;;
+#    --vle           ) dovle=yes      ;;
+#    --no-vle        ) dovle=no       ;;
     --lowlevel      ) dolowlevel=yes ;;
     --targets       ) targets="$2"; shift ;;
     --with-compiler ) compiler="$2" ; shift ;;
@@ -67,7 +67,8 @@ else
 fi
 
 echo doclean=${doclean} doconfig=${doconfig} domake=${domake}
-echo dovle=${dovle} dolowlevel=${dolowlevel} compiler=${compiler}
+echo dolowlevel=${dolowlevel} compiler=${compiler}
+#echo dovle=${dovle}
 
 eval $ECHOCMD cd `dirname $GENIE`
 cd `dirname $GENIE`
@@ -105,7 +106,7 @@ export LOG4CPP_INC=${LOG4CPP_FQ_DIR}/include
 export LOG4CPP_LIB=${LOG4CPP_FQ_DIR}/lib
 
 
-   MYPREFIX=/var/tmp/rhatcher/GENIE_INSTALL
+   MYPREFIX=${GENIE_FQ_DIR}
    setprefix="--prefix=${MYPREFIX}"
    if [  ! -d ${MYPREFIX} ]; then
      mkdir -p ${MYPREFIX}
@@ -123,15 +124,18 @@ export LOG4CPP_LIB=${LOG4CPP_FQ_DIR}/lib
    else
      cfg="$cfg --disable-lowlevel-mesg"
    fi
-   if [[ "x${dovle}" == "xyes" ]] ; then
-     cfg="$cfg --enable-vle-extension"
-   fi
+#   if [[ "x${dovle}" == "xyes" ]] ; then
+#     cfg="$cfg --enable-vle-extension"
+#   fi
 #   cfg="$cfg --enable-nuvalidator --enable-neugen"
    cfg="$cfg --disable-gibuu --enable-flux-drivers --enable-geom-drivers"
 #   cfg="$cfg --enable-doxygen --enable-test --enable-viewer"
-   cfg="$cfg --enable-mueloss"
+#   cfg="$cfg --enable-mueloss"
    cfg="$cfg --enable-atmo --enable-rwght"
    cfg="$cfg --enable-nucleon-decay"
+   cfg="$cfg --enable-nnbar-oscillation"
+# install libGPhBDMXS.so
+   cfg="$cfg --enable-boosted-dark-matter"
    cfg="$cfg --enable-dylibversion"
    if [[ "${doopt}" == "no" ]] ; then
      cfg="$cfg --enable-debug"
