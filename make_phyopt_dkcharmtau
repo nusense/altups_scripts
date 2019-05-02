@@ -2,6 +2,7 @@
 #
 # create the UserPhysicsOptions.xml      for GENIE R-2
 # create the UnstableParticleDecayer.xml for GENIE R-3
+# create the CommonDecay.xml             for GENIE R-3_00_04 and beyond
 #
 # need both "genie" and "genie_phyopt" setup (and consistent)
 #
@@ -15,6 +16,15 @@
 #         --tau=[0|1]
 #
 
+if [[ "${BASH_SOURCE[0]}" != "${0}" ]] ; then
+  echo "script ${BASH_SOURCE[0]} is being sourced ..."
+  QUITCMD="return"
+else
+  echo "script is being run ..."
+  QUITCMD="exit"
+fi
+
+
 b0=`basename $0`
 docharm=1
 dotau=1
@@ -22,7 +32,9 @@ force=0
 dohelp=0
 
 #phyoptfile=UserPhysicsOptions.xml
-phyoptfile=UnstableParticleDecayer.xml
+#phyoptfile=UnstableParticleDecayer.xml
+#phyoptfile=CommonParameters.xml
+phyoptfile=CommonDecay.xml
 
 TEMP=`getopt -n $b0 -s bash -a \
     --longoptions="help force docharm: charm: dotau: tau:" \
@@ -78,10 +90,10 @@ dotau=$ISTRUEVAL
 geniev=`echo ${SETUP_GENIE} | cut -d' ' -f2`
 phyoptv=`echo ${SETUP_GENIE_PHYOPT} | cut -d' ' -f2`
 
-genievmajor=`echo ${geniev} | cut -c2`
-if [ ${genievmajor} -eq 2 ]; then
-  phyoptfile=UserPhysicsOptions.xml
-fi
+#genievmajor=`echo ${geniev} | cut -c2`
+#if [ ${genievmajor} -eq 2 ]; then
+#  phyoptfile=UserPhysicsOptions.xml
+#fi
 
 echo "versions: genie \"${geniev}\"  genie_phyopt \"${phyoptv}\""
 echo "modify:   ${phyoptfile}"
@@ -95,13 +107,6 @@ if [ ${force} -eq 0 ]; then
 fi
 
 sedscript=dkcharmtau.sed
-
-if [ -f ${phyoptfile} ]; then
-  echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
-  echo "${phyoptfile} already exists ... will not proceed"
-  echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
-  exit
-fi
 
 if [ $docharm -eq 1 -a $dotau -eq 1 ]; then
   WHATDK="charm + tau"
@@ -128,6 +133,20 @@ if [ $dotau -eq 1 ]; then
   echo "/DecayParticleWithCode=-15\"/s%false%true %" >> ${sedscript}
 fi
 
-sed -f ${sedscript} ${GENIE}/config/${phyoptfile} > ${phyoptfile}
 
+if [ -f ${phyoptfile} ]; then
+  echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+  echo "${phyoptfile} already exists ... will not proceed"
+  echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+  exit
+fi
+
+if [ -f ${GENIE}/config/${phyoptfile} ]; then
+  sed -f ${sedscript} ${GENIE}/config/${phyoptfile} > ${phyoptfile}
+else
+  echo -e "${OUTRED}no \${GENIE}/config/${phyoptfile} ${OUTNOCOL}"
+  ${QUITCMD} 1
+fi
+
+${QUITCMD} 0
 # end-of-script
