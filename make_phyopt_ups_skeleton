@@ -40,8 +40,8 @@ done
 # product or a starting point for further modifications
 here=`pwd`
 cd ${version}/${flavor}/${qual}
-echo ln -s ../../../make_phyopt_dkcharmtau .
-ln -s ../../../make_phyopt_dkcharmtau .
+# echo ln -s ../../../make_phyopt_dkcharmtau .
+# ln -s ../../../make_phyopt_dkcharmtau .
 cd $here
 
 tableFile=${version}/${flavor}/${qual}/ups/${product}.table
