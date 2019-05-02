@@ -17,6 +17,10 @@ dolowlevel=no
 targets="all"
 compiler="gcc"
 
+dog4=no
+doincl=no
+skipbdm=no
+
 usage() {
   echo "Usage: ${whatami}              " >&2
   echo "   -c:         clean               [$doclean]   " >&2
@@ -29,13 +33,16 @@ usage() {
   echo "   --lowlevel: lowlevel-mesg       [$dolowlevel]" >&2
   echo "   --targets=<target>              [$targets]   " >&2
   echo "   --with-compiler: gcc/clang      [$compiler]  " >&2
+  echo "   --enable-geant4:                [$dog4]      " >&2
+  echo "   --enable-incl:                  [$doincl]    " >&2
+  echo "   --disable-bdm                   [$skipbdm]   " >&2
   return 1
 }
 
 GSPLOAD_SAVE=$GSPLOAD
 here=`pwd`
 
-TEMP=`getopt -n ${whatami} -s bash -a --longoptions="help clean config make opt vle vhe no-vle no-vhe lowlevel targets: with-compiler:" -o ?hcClmfesv -- "$@"`
+TEMP=`getopt -n ${whatami} -s bash -a --longoptions="help clean config make opt vle vhe no-vle no-vhe lowlevel targets: with-compiler: geant4:: enable-geant4:: incl:: enable-incl:: enable-inclxx:: disable-bdm" -o ?hcClmfesv -- "$@"`
 if [ $? != 0 ] ; then
   echo "Usage: ${whatami} [-c] [-C] " >&2
 fi
@@ -55,6 +62,13 @@ do
     --lowlevel      ) dolowlevel=yes ;;
     --targets       ) targets="$2"; shift ;;
     --with-compiler ) compiler="$2" ; shift ;;
+    --*geant4       ) dog4="$2" ;
+                      if [ "x${dog4}" == "x" ]; then dog4=yes ;
+                      else shift ; fi ;;
+    --*incl*        ) doincl="$2" ;
+                      if [ "x${doincl}" == "x" ]; then doincl=yes ;
+                      else shift ; fi ;;
+    --disable-bdm   ) skipbdm="yes" ;;
     --              ) shift ;   break;;
   esac
   shift # eat the arg we just processed
@@ -68,6 +82,7 @@ fi
 
 echo doclean=${doclean} doconfig=${doconfig} domake=${domake}
 echo dolowlevel=${dolowlevel} compiler=${compiler}
+echo dog4=${dog4} doincl=${doincl} skipbdm=${skipbdm}
 #echo dovle=${dovle}
 
 eval $ECHOCMD cd `dirname $GENIE`
@@ -94,6 +109,8 @@ if [[ "x${doclean}" == "xyes" ]] ; then
    make clean > do_make_clean.log 2>&1
 fi
 
+
+config_status=0
 if [[ "x${doconfig}" == "xyes" ]] ; then
 #
 
@@ -104,7 +121,6 @@ export LIBXML2_INC=${LIBXML2_FQ_DIR}/include/libxml2
 export LIBXML2_LIB=${LIBXML2_FQ_DIR}/lib
 export LOG4CPP_INC=${LOG4CPP_FQ_DIR}/include
 export LOG4CPP_LIB=${LOG4CPP_FQ_DIR}/lib
-
 
    MYPREFIX=${GENIE_FQ_DIR}
    setprefix="--prefix=${MYPREFIX}"
@@ -135,7 +151,9 @@ export LOG4CPP_LIB=${LOG4CPP_FQ_DIR}/lib
    cfg="$cfg --enable-nucleon-decay"
    cfg="$cfg --enable-nnbar-oscillation"
 # install libGPhBDMXS.so
-   cfg="$cfg --enable-boosted-dark-matter"
+   if [[ "${skipbdm}" != "yes" ]] ; then
+     cfg="$cfg --enable-boosted-dark-matter"
+   fi
    cfg="$cfg --enable-dylibversion"
    if [[ "${doopt}" == "no" ]] ; then
      cfg="$cfg --enable-debug"
@@ -143,14 +161,42 @@ export LOG4CPP_LIB=${LOG4CPP_FQ_DIR}/lib
      cfg="$cfg --with-optimiz-level=O3"
    fi
 #   cfg="$cfg --with-cern-lib=$CERN_DIR/lib"
-   cfg="$cfg --enable-lhapdf"
-   cfg="$cfg --with-lhapdf-inc=${LHAPDF_INC}"
-   cfg="$cfg --with-lhapdf-lib=${LHAPDF_LIB}"
+   cfg="$cfg --enable-lhapdf5"
+   cfg="$cfg --with-lhapdf5-inc=${LHAPDF_INC}"
+   cfg="$cfg --with-lhapdf5-lib=${LHAPDF_LIB}"
    cfg="$cfg --with-pythia6-lib=$PYTHIA6_DIR/lib"
    cfg="$cfg --with-libxml2-inc=${LIBXML2_INC} "
    cfg="$cfg --with-libxml2-lib=${LIBXML2_LIB}"
    cfg="$cfg --with-log4cpp-inc=${LOG4CPP_INC}"
    cfg="$cfg --with-log4cpp-lib=${LOG4CPP_LIB}"
+
+  if [[ "x${dog4}" == "xyes" ]]; then
+     echo "==========> configure for Geant4"
+     export GEANT4_INC=${GEANT4_FQ_DIR}/include # not /Geant4
+     export GEANT4_LIB=${GEANT4_FQ_DIR}/lib64
+
+     cfg="$cfg --enable-geant4"
+     cfg="$cfg --with-geant4-inc=${GEANT4_INC}"
+     cfg="$cfg --with-geant4-lib=${GEANT4_LIB}"
+  else
+     echo "==========> NOT configured for Geant4"
+  fi
+
+  if [[ "x${doincl}" == "xyes" ]]; then
+     echo "==========> configure for INCL++"
+     export INCL_INC=${INCL_FQ_DIR}/include
+     export INCL_LIB=${INCL_FQ_DIR}/lib
+     export BOOST_INC=${BOOST_FQ_DIR}/include
+     export BOOST_LIB=${BOOST_FQ_DIR}/lib
+
+     cfg="$cfg --enable-incl"
+     cfg="$cfg --with-incl-inc=${INCL_INC}"
+     cfg="$cfg --with-incl-lib=${INCL_LIB}"
+     cfg="$cfg --with-boost-inc=${BOOST_INC}"
+     cfg="$cfg --with-boost-lib=${BOOST_LIB}"
+  else
+     echo "==========> NOT configured for INCL++"
+  fi
 
 #   cfg="$cfg --enable-profiler --with-profiler-lib=$INSTALLATION/lib"
 #   cfg="$cfg --with-log4cpp-inc=$LOG4CPP_DIR/include"
@@ -160,16 +206,40 @@ export LOG4CPP_LIB=${LOG4CPP_FQ_DIR}/lib
    echo ./configure $cfg > do_configure.log 2>&1
    echo " =============" >> do_configure.log 2>&1
    ./configure $cfg >> do_configure.log 2>&1
+   config_status=$?
 fi
 
 if [[ "x${domake}" == "xyes" ]] ; then
+
+  if [[ ${config_status} -ne 0 ]]; then
+    echo -e "${OUTRED}skip make step as config failed${OUTNOCOL}"
+    echo -e "${OUTRED}skip make step as config failed${OUTNOCOL}" 1>&2
+    exit ${config_status}
+  fi
+
   #srt_setup --unsetup
   unset MAKEFILE MAKEFLAG MAKEFILES MAKEFLAGS
   echo make $targets
+
+  cd $GENIE
   make $targets > do_make.log 2>&1
   makestatus=$?
-  echo "\"make $targets\" completed with status $makestatus"
+  echo "Generator \"make $targets\" completed with status $makestatus"
   grep error do_make.log
+  if [ $makestatus -eq 0 ]; then
+    make install > do_install.log 2>&1
+
+    cd $GENIE_REWEIGHT
+    export GENIE_REWEIGHT_INSTALLATION_PATH=${GENIE_FQ_PATH}
+    make > do_make.log 2>&1
+    makestatus_rwt=$?
+    echo "Reweight \"make\" completed with status ${makestatus_rwt}"
+    grep error do_make.log
+    if [ ${makestatus_rwt} -eq 0 ]; then
+      make install > do_install.log 2>&1
+    fi
+  fi
+
 fi
 
 #return 0
