@@ -47,10 +47,14 @@ if [ $? != 0 ] ; then
   echo "Usage: ${whatami} [-c] [-C] " >&2
 fi
 eval set -- "${TEMP}"
+#echo "TEMP=${TEMP}"
+#echo "\$*=$*"
+#echo "\$@=${@}"
 unset TEMP
-for o
-do
-  case "$o" in
+while true; do
+
+  echo "\$1='$1' \$2='$2'"
+  case "$1" in
     -h | --help     ) usage ;    exit;;
     -c | --clean    ) doclean=yes    ;;
     -C | --config   ) doconfig=yes   ;;
@@ -60,17 +64,31 @@ do
 #    --vle           ) dovle=yes      ;;
 #    --no-vle        ) dovle=no       ;;
     --lowlevel      ) dolowlevel=yes ;;
-    --targets       ) targets="$2"; shift ;;
-    --with-compiler ) compiler="$2" ; shift ;;
+    --targets       ) targets="$2"
+                      shift
+                      ;;
+    --with-compiler ) compiler="$2"
+                      shift
+                      ;;
+# optional arg, ie. --flag:: (double ::) will get a '' pushed in after them
+# by getopt ... still need to remove it with a shift
     --*geant4       ) dog4="$2" ;
-                      if [ "x${dog4}" == "x" ]; then dog4=yes ;
-                      else shift ; fi ;;
+                      if [ "x${dog4}" == "x" ]; then
+                         dog4=yes
+                      fi
+                      shift
+                      ;;
     --*incl*        ) doincl="$2" ;
-                      if [ "x${doincl}" == "x" ]; then doincl=yes ;
-                      else shift ; fi ;;
+                      if [ "x${doincl}" == "x" ]; then
+                        doincl=yes
+                      fi
+                      shift
+                      ;;
     --disable-bdm   ) skipbdm="yes" ;;
-    --              ) shift ;   break;;
+    --              ) shift ;   break ;;
+    *               ) echo "===> unknown arg '$1'"
   esac
+  # echo "do shift arg1"
   shift # eat the arg we just processed
 done
 
