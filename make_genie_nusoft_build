@@ -16,6 +16,9 @@ doopt=no
 dolowlevel=no
 targets="all"
 compiler="gcc"
+dolhapdf5=no
+dolhapdf6=no
+pythiaMajor=6  # or 8
 
 dog4=no
 doincl=no
@@ -35,6 +38,9 @@ usage() {
   echo "   --with-compiler: gcc/clang      [$compiler]  " >&2
   echo "   --enable-geant4:                [$dog4]      " >&2
   echo "   --enable-incl:                  [$doincl]    " >&2
+  echo "   --enable-lhapdf5                [$dolhapdf5] " >&2
+  echo "   --enable-lhapdf6                [$dolhapdf6] " >&2
+  echo "   --pythia-major                  [$pythiaMajor] " >&2
   echo "   --disable-bdm                   [$skipbdm]   " >&2
   return 1
 }
@@ -42,7 +48,7 @@ usage() {
 GSPLOAD_SAVE=$GSPLOAD
 here=`pwd`
 
-TEMP=`getopt -n ${whatami} -s bash -a --longoptions="help clean config make opt vle vhe no-vle no-vhe lowlevel targets: with-compiler: geant4:: enable-geant4:: incl:: enable-incl:: enable-inclxx:: disable-bdm" -o ?hcClmfesv -- "$@"`
+TEMP=`getopt -n ${whatami} -s bash -a --longoptions="help clean config make opt vle vhe no-vle no-vhe lowlevel targets: with-compiler: geant4:: enable-geant4:: incl:: enable-incl:: enable-inclxx:: enable-lhapdf5: enable-lhapdf6: pythia-major: disable-bdm" -o ?hcClmfesv -- "$@"`
 if [ $? != 0 ] ; then
   echo "Usage: ${whatami} [-c] [-C] " >&2
 fi
@@ -84,6 +90,22 @@ while true; do
                       fi
                       shift
                       ;;
+    --enable-lhapdf5 ) dolhapdf5="$2"
+                      shift
+                      ;;
+    --enable-lhapdf6 ) dolhapdf6="$2"
+                      shift
+                      ;;
+    --pythia-major ) pythiaMajor="$2"
+                     if [ $pythiaMajor -eq 6 -o $pythiaMajor -eq 8 ]; then
+                       echo "using major pythia version: $pythiaMajor"
+                     else
+                       echo -e "${OUTRED}major pythia version: $pythiaMajor ${OUTNOCOL}"
+                       echo -e "${OUTRED}NOT SUPPORTED${OUTNOCOL}"
+                       exit 1
+                     fi
+                     shift
+                     ;;
     --disable-bdm   ) skipbdm="yes" ;;
     --              ) shift ;   break ;;
     *               ) echo "===> unknown arg '$1'"
@@ -100,7 +122,10 @@ fi
 
 echo doclean=${doclean} doconfig=${doconfig} domake=${domake}
 echo dolowlevel=${dolowlevel} compiler=${compiler}
-echo dog4=${dog4} doincl=${doincl} skipbdm=${skipbdm}
+echo dog4=${dog4} doincl=${doincl}
+echo dolhapdf5=${dolhapdf5} dolhapdf6=${dolhapdf6}
+echo pythiaMajor=${pythiaMajor}
+echo skipbdm=${skipbdm}
 #echo dovle=${dovle}
 
 eval $ECHOCMD cd `dirname $GENIE`
@@ -123,18 +148,31 @@ if [ "x${GSPLINE_DIR}" != "x" ] ; then
 fi
 
 if [[ "x${doclean}" == "xyes" ]] ; then
-   echo make clean
-   make clean > do_make_clean.log 2>&1
+   cd $GENIE
+   echo make clean genie
+   make distclean clean > ../do_make_clean_genie.log 2>&1
+   cd $GENIE_REWEIGHT
+   export GENIE_REWEIGHT_INSTALLATION_PATH=${GENIE_FQ_PATH}
+   echo make clean reweight
+   make distclean clean > ../do_make_clean_reweight.log 2>&1
+   cd $GENIE
 fi
-
 
 config_status=0
 if [[ "x${doconfig}" == "xyes" ]] ; then
 #
 
-export PYTHIA6_DIR=${PYTHIA_FQ_DIR}
-export LHAPDF_LIB=${LHAPDF_FQ_DIR}/lib
-export LHAPDF_INC=${LHAPDF_FQ_DIR}/include
+if [ $pythiaMajor -eq 6 ]; then
+  export PYTHIA6_DIR=${PYTHIA_FQ_DIR}
+fi
+if [ $pythiaMajor -eq 8 ]; then
+  export PYTHIA8_DIR=${PYTHIA_FQ_DIR}
+fi
+
+if [ "${dolhapdf5}" == "yes" -o "${dolhapdf6}" == "yes" ]; then
+  export LHAPDF_LIB=${LHAPDF_FQ_DIR}/lib
+  export LHAPDF_INC=${LHAPDF_FQ_DIR}/include
+fi
 export LIBXML2_INC=${LIBXML2_FQ_DIR}/include/libxml2
 export LIBXML2_LIB=${LIBXML2_FQ_DIR}/lib
 export LOG4CPP_INC=${LOG4CPP_FQ_DIR}/include
@@ -179,10 +217,35 @@ export LOG4CPP_LIB=${LOG4CPP_FQ_DIR}/lib
      cfg="$cfg --with-optimiz-level=O3"
    fi
 #   cfg="$cfg --with-cern-lib=$CERN_DIR/lib"
-   cfg="$cfg --enable-lhapdf5"
-   cfg="$cfg --with-lhapdf5-inc=${LHAPDF_INC}"
-   cfg="$cfg --with-lhapdf5-lib=${LHAPDF_LIB}"
-   cfg="$cfg --with-pythia6-lib=$PYTHIA6_DIR/lib"
+   if [ "${dolhapdf5}" == "yes" ]; then
+     cfg="$cfg --enable-lhapdf5"
+     cfg="$cfg --with-lhapdf5-inc=${LHAPDF_INC}"
+     cfg="$cfg --with-lhapdf5-lib=${LHAPDF_LIB}"
+   else
+     cfg="$cfg --disable-lhapdf5"
+   fi
+   if [ "${dolhapdf6}" == "yes" ]; then
+     cfg="$cfg --enable-lhapdf6"
+     cfg="$cfg --with-lhapdf6-inc=${LHAPDF_INC}"
+     cfg="$cfg --with-lhapdf6-lib=${LHAPDF_LIB}"
+   else
+     cfg="$cfg --disable-lhapdf6"
+   fi
+
+   if [ $pythiaMajor -eq 6 ]; then
+     cfg="$cfg --enable-pythia6"
+     cfg="$cfg --with-pythia6-lib=$PYTHIA6_DIR/lib"
+     cfg="$cfg --enable-gfortran"
+#whichgf=`which gfortran`
+#whichgfdir=`dirname $whichgf`
+#     cfg="$cfg --with-gfortran-lib=$whichgfdir/../lib64"  # not lib
+   fi
+   if [ $pythiaMajor -eq 8 ]; then
+     cfg="$cfg --enable-pythia8"
+     cfg="$cfg --with-pythia8-inc=$PYTHIA8_DIR/include"
+     cfg="$cfg --with-pythia8-lib=$PYTHIA8_DIR/lib"
+   fi
+
    cfg="$cfg --with-libxml2-inc=${LIBXML2_INC} "
    cfg="$cfg --with-libxml2-lib=${LIBXML2_LIB}"
    cfg="$cfg --with-log4cpp-inc=${LOG4CPP_INC}"
@@ -219,6 +282,8 @@ export LOG4CPP_LIB=${LOG4CPP_FQ_DIR}/lib
 #   cfg="$cfg --enable-profiler --with-profiler-lib=$INSTALLATION/lib"
 #   cfg="$cfg --with-log4cpp-inc=$LOG4CPP_DIR/include"
 #   cfg="$cfg --with-log4cpp-lib=$LOG4CPP_DIR/lib"
+
+   cd $GENIE
    echo ./configure $cfg
    rm -f do_configure.log
    echo ./configure $cfg > do_configure.log 2>&1
@@ -237,24 +302,33 @@ if [[ "x${domake}" == "xyes" ]] ; then
 
   #srt_setup --unsetup
   unset MAKEFILE MAKEFLAG MAKEFILES MAKEFLAGS
-  echo make $targets
 
   cd $GENIE
+  make distclean > do_distclean.log 2>&1
+  echo "genie: make $targets"
   make $targets > do_make.log 2>&1
   makestatus=$?
   echo "Generator \"make $targets\" completed with status $makestatus"
   grep error do_make.log
   if [ $makestatus -eq 0 ]; then
+    echo "genie: install"
     make install > do_install.log 2>&1
+    installstatus=$?
+    echo "Genie \"make install\" completed with status ${installstatus}"
 
     cd $GENIE_REWEIGHT
     export GENIE_REWEIGHT_INSTALLATION_PATH=${GENIE_FQ_PATH}
+    make distclean > do_distclean.log 2>&1
+    echo "reweight: make"
     make > do_make.log 2>&1
     makestatus_rwt=$?
     echo "Reweight \"make\" completed with status ${makestatus_rwt}"
     grep error do_make.log
     if [ ${makestatus_rwt} -eq 0 ]; then
+      echo "reweight: install"
       make install > do_install.log 2>&1
+      installstatus_rwt=$?
+      echo "Reweight \"make install\" completed with status ${installstatus_rwt}"
     fi
   fi
 
