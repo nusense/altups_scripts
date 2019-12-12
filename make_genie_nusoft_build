@@ -151,10 +151,14 @@ if [[ "x${doclean}" == "xyes" ]] ; then
    cd $GENIE
    echo make clean genie
    make distclean clean > ../do_make_clean_genie.log 2>&1
-   cd $GENIE_REWEIGHT
-   export GENIE_REWEIGHT_INSTALLATION_PATH=${GENIE_FQ_PATH}
-   echo make clean reweight
-   make distclean clean > ../do_make_clean_reweight.log 2>&1
+   if [ ! -d ${GENIE_REWEIGHT} ]; then
+     echo "no reweight directory ..."
+   else
+     cd $GENIE_REWEIGHT
+     export GENIE_REWEIGHT_INSTALLATION_PATH=${GENIE_FQ_PATH}
+     echo make clean reweight
+     make distclean clean > ../do_make_clean_reweight.log 2>&1
+   fi
    cd $GENIE
 fi
 
@@ -316,22 +320,25 @@ if [[ "x${domake}" == "xyes" ]] ; then
     installstatus=$?
     echo "Genie \"make install\" completed with status ${installstatus}"
 
-    cd $GENIE_REWEIGHT
-    export GENIE_REWEIGHT_INSTALLATION_PATH=${GENIE_FQ_PATH}
-    make distclean > do_distclean.log 2>&1
-    echo "reweight: make"
-    make > do_make.log 2>&1
-    makestatus_rwt=$?
-    echo "Reweight \"make\" completed with status ${makestatus_rwt}"
-    grep error do_make.log
-    if [ ${makestatus_rwt} -eq 0 ]; then
-      echo "reweight: install"
-      make install > do_install.log 2>&1
-      installstatus_rwt=$?
-      echo "Reweight \"make install\" completed with status ${installstatus_rwt}"
-    fi
+    if [ ! -d ${GENIE_REWEIGHT} ]; then
+      echo "no reweight directory ..."
+    else
+      cd $GENIE_REWEIGHT
+      export GENIE_REWEIGHT_INSTALLATION_PATH=${GENIE_FQ_PATH}
+      make distclean > do_distclean.log 2>&1
+      echo "reweight: make"
+      make > do_make.log 2>&1
+      makestatus_rwt=$?
+      echo "Reweight \"make\" completed with status ${makestatus_rwt}"
+      grep error do_make.log
+      if [ ${makestatus_rwt} -eq 0 ]; then
+        echo "reweight: install"
+        make install > do_install.log 2>&1
+        installstatus_rwt=$?
+        echo "Reweight \"make install\" completed with status ${installstatus_rwt}"
+      fi # reweight
+    fi # makestatus for generator
   fi
-
 fi
 
 #return 0
