@@ -6,8 +6,10 @@ export PRODUCT=genie
 export VERSION=""   # UPS version name e.g. my280alt
 export QUALIFIER="" # UPS qualifer flags e.g. e5:debug
 export GITREV=""    # git tag or revision e.g. HEAD, R-2_8_0 or 3665
-export GITPATH="https://github.com/GENIE-MC"
-export GITUSER=`who am i | cut -d' ' -f1`
+export GITUSER="GENIE-MC"
+export GITUSERMASTER="GENIE-MC"
+export GITPATH="https://github.com"
+# export SVNUSER=`who am i | cut -d' ' -f1`
 export CHECKOUT="yes"
 export FLAVOR=`ups flavor`    #
 export VERBOSE=0
@@ -43,6 +45,7 @@ Usage: ${b0} [flags] <version> <qualifier> <tag_or_rev>
   --gsl="<ups-setup-string>"                ["${gsl_ups_setup}"]
   --checkout[=<val>]  do GIT checkout
                       [true]/false
+  --user=<user>       checkout from         ['${GITUSER}"]
   --show-config
 EOF
 }
@@ -57,6 +60,7 @@ Current Settings for "${PRODUCT}":
   <qualifier> "${QUALIFIER}"
   <gitrev>    "${GITREV}"
   checkout    ($CHECKOUT) using $GITFULLPATH
+  github_user "${GITUSER}"
 Dependencies:
   gcc     ${gcc_ups_setup}
   root    ${root_ups_setup}
@@ -206,8 +210,8 @@ process_args() {
   opterr=/tmp/getopt.err.$$
 
   TEMP=`getopt -n $b0 -s bash -a \
-      --longoptions="help verbose test flavor: checkout:: \
-                     svn-user: qual-mismatch-ok show-config \
+      --longoptions="help verbose test flavor: checkout:: user: \
+                     qual-mismatch-ok show-config \
                      gcc: root: pythia: lhapdf: libxml2: log4cpp: gsl: " \
       -o htvf -- "$@" 2> $opterr `
   getoptstat=$?
@@ -256,6 +260,7 @@ process_args() {
              ;;
         esac
         ;;
+      --user          ) export GITUSER="$2"    ; shift ;;
       --gcc           ) gcc_ups_setup="$2"     ; shift ;;
       --root          ) root_ups_setup="$2"    ; shift ;;
       --pythia        ) pythia_ups_setup="$2"  ; shift ;;
@@ -368,7 +373,8 @@ done
 #
 for REPO in Generator Reweight ; do
   cd ${HERE}/${VERSION}/${flvqual}
-  GITFULLPATH=${GITPATH}/${REPO}.git
+  GITFULLPATH=${GITPATH}/${GITUSER}/${REPO}.git
+  GITFULLPATHMASTER=${GITPATH}/${GITUSERMASTER}/${REPO}.git
   repotop=${REPO}_${VERSION}
   if [ ${REPO} == "Generator" ]; then gittop_gen=${repotop} ; fi
   if [ ${REPO} == "Reweight"  ]; then gittop_rwt=${repotop} ; fi
@@ -383,7 +389,10 @@ for REPO in Generator Reweight ; do
         exit
       else
         cd ${repotop}
-        if [[ -z "${GITREV}" || "${GITREV}" == "HEAD" ]]; then
+        if [ "${GITUSER}" != "${GUTUSERMASTER}" ]; then
+          git remote add upstream ${GITFULLPATHMASTER}
+        fi
+        if [[ -z "${GITREV}" || "${GITREV}" == "HEAD" || "${GITREV}" == "head" ]]; then
           echo -e "${OUTGREN}leaving git checkout at default (GITREV=${GITREV})${OUTNOCOL}"
         else
           taglist=`git tag -l`
