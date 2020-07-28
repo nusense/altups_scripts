@@ -277,7 +277,7 @@ export LOG4CPP_LIB=${LOG4CPP_FQ_DIR}/lib
 
   if [[ "x${doincl}" == "xyes" ]]; then
      echo "==========> configure for INCL++"
-     export INCL_INC=${INCL_FQ_DIR}/include
+     export INCL_INC=${INCL_FQ_DIR}/include/inclxx
      export INCL_LIB=${INCL_FQ_DIR}/lib
      export BOOST_INC=${BOOST_FQ_DIR}/include
      export BOOST_LIB=${BOOST_FQ_DIR}/lib
