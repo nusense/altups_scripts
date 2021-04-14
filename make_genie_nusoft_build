@@ -49,7 +49,7 @@ usage() {
 GSPLOAD_SAVE=$GSPLOAD
 here=`pwd`
 
-TEMP=`getopt -n ${whatami} -s bash -a --longoptions="help clean config make opt vle vhe no-vle no-vhe lowlevel extras:: targets: with-compiler: geant4:: enable-geant4:: incl:: enable-incl:: enable-inclxx:: enable-lhapdf5: enable-lhapdf6: pythia-major: disable-bdm" -o ?hcClmfesv -- "$@"`
+TEMP=`getopt -n ${whatami} -s bash -a --longoptions="help clean config make opt vle vhe no-vle no-vhe lowlevel extras:: targets: with-compiler: geant4:: enable-geant4:: incl:: enable-incl:: enable-inclxx:: enable-lhapdf5:: enable-lhapdf6:: pythia-major: disable-bdm" -o ?hcClmfesv -- "$@"`
 
 if [ $? != 0 ] ; then
   echo "Usage: ${whatami} [-c] [-C] " >&2
@@ -99,9 +99,17 @@ while true; do
                       shift
                       ;;
     --enable-lhapdf5 ) dolhapdf5="$2"
+                      if [ "x${dolhapdf5}" == "x" ]; then
+                        dolhapdf5=yes
+                      fi
+                      echo "enable-lhapdf5 set dolhapdf5=${dolhapdf5}"
                       shift
                       ;;
     --enable-lhapdf6 ) dolhapdf6="$2"
+                      if [ "x${dolhapdf6}" == "x" ]; then
+                        dolhapdf6=yes
+                      fi
+                      echo "enable-lhapdf6 set dolhapdf6=${dolhapdf6}"
                       shift
                       ;;
     --pythia-major ) pythiaMajor="$2"
@@ -286,8 +294,13 @@ export LOG4CPP_LIB=${LOG4CPP_FQ_DIR}/lib
 
   if [[ "x${doincl}" == "xyes" ]]; then
      echo "==========> configure for INCL++"
-     export INCL_INC=${INCL_FQ_DIR}/include/inclxx
-     export INCL_LIB=${INCL_FQ_DIR}/lib
+     if [ -n "${INCLXX_FQ_DIR}" ]; then
+       export INCL_INC=${INCLXX_FQ_DIR}/include/inclxx
+       export INCL_LIB=${INCLXX_FQ_DIR}/lib
+     else
+       export INCL_INC=${INCL_FQ_DIR}/include/inclxx
+       export INCL_LIB=${INCL_FQ_DIR}/lib
+     fi
      export BOOST_INC=${BOOST_FQ_DIR}/include
      export BOOST_LIB=${BOOST_FQ_DIR}/lib
 
