@@ -12,7 +12,7 @@ doconfig=no
 domake=no
 verbose=no
 doopt=no
-doextras=no
+doextras=""
 #dovle=yes
 dolowlevel=no
 targets="all"
@@ -33,6 +33,7 @@ usage() {
   echo "   -v:         verbose             [$doverbose] " >&2
   echo "   --opt       optimized           [$doopt]     " >&2
   echo "   --extras    other subpkg        [$doextras]  " >&2
+  echo "                e.g. test,masterclass,t2k       " >&2
   echo "   --lowlevel: lowlevel-mesg       [$dolowlevel]" >&2
   echo "   --targets=<target>              [$targets]   " >&2
   echo "   --with-compiler: gcc/clang      [$compiler]  " >&2
@@ -48,7 +49,7 @@ usage() {
 GSPLOAD_SAVE=$GSPLOAD
 here=`pwd`
 
-TEMP=`getopt -n ${whatami} -s bash -a --longoptions="help clean config make opt vle vhe no-vle no-vhe lowlevel extras targets: with-compiler: geant4:: enable-geant4:: incl:: enable-incl:: enable-inclxx:: enable-lhapdf5: enable-lhapdf6: pythia-major: disable-bdm" -o ?hcClmfesv -- "$@"`
+TEMP=`getopt -n ${whatami} -s bash -a --longoptions="help clean config make opt vle vhe no-vle no-vhe lowlevel extras:: targets: with-compiler: geant4:: enable-geant4:: incl:: enable-incl:: enable-inclxx:: enable-lhapdf5: enable-lhapdf6: pythia-major: disable-bdm" -o ?hcClmfesv -- "$@"`
 
 if [ $? != 0 ] ; then
   echo "Usage: ${whatami} [-c] [-C] " >&2
@@ -68,7 +69,6 @@ while true; do
     -m | --make     ) domake=yes     ;;
     -v              ) verbose=yes    ;;
     --opt           ) doopt=yes      ;;
-    --extras        ) doextras=yes   ;;
 #    --vle           ) dovle=yes      ;;
 #    --no-vle        ) dovle=no       ;;
     --lowlevel      ) dolowlevel=yes ;;
@@ -80,6 +80,12 @@ while true; do
                       ;;
 # optional arg, ie. --flag:: (double ::) will get a '' pushed in after them
 # by getopt ... still need to remove it with a shift
+    --extras        ) doextras="$2";
+                      if [ "x${doextras}" == "x" ]; then
+                         doextras="test,masterclass,t2k"
+                      fi
+                      shift
+                      ;;
     --*geant4       ) dog4="$2" ;
                       if [ "x${dog4}" == "x" ]; then
                          dog4=yes
@@ -223,9 +229,12 @@ export LOG4CPP_LIB=${LOG4CPP_FQ_DIR}/lib
      cfg="$cfg --with-optimiz-level=O3"
    fi
 
-   if [[ "${doextras}" == "yes" ]] ; then
-     cfg="$cfg --enable-test"
-     cfg="$cfg --enable-masterclass"
+   if [[ -n "${doextras}" ]] ; then
+     for subpkg in `echo ${doextras} | tr ",:;" "\n"`
+     do
+       cfg="$cfg --enable-${subpkg}"
+       echo "--enable-${subpkg}"
+     done
    fi
 
 #   cfg="$cfg --with-cern-lib=$CERN_DIR/lib"
