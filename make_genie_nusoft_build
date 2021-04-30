@@ -82,7 +82,7 @@ while true; do
 # by getopt ... still need to remove it with a shift
     --extras        ) doextras="$2";
                       if [ "x${doextras}" == "x" ]; then
-                         doextras="test,masterclass,t2k"
+                         doextras="test,masterclass,t2k,evtlib,"
                       fi
                       shift
                       ;;
@@ -229,6 +229,8 @@ export LOG4CPP_LIB=${LOG4CPP_FQ_DIR}/lib
 # install libGPhBDMXS.so
    if [[ "${skipbdm}" != "yes" ]] ; then
      cfg="$cfg --enable-boosted-dark-matter"
+     cfg="$cfg --enable-neutral-heavy-lepton"
+     cfg="$cfg --enable-dark-neutrino"
    fi
    cfg="$cfg --enable-dylibversion"
    if [[ "${doopt}" == "no" ]] ; then
