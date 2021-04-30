@@ -108,6 +108,8 @@ sortqual()
 check_cwd() {
   # ensure that the product matches the current directory
   PRDDIR=`basename $HERE`
+  if [ "$PRDDIR" == "dk2nugenie" ]; then PRODUCT=dk2nugenie; fi
+  if [ "$PRDDIR" == "dk2nudata"  ]; then PRODUCT=dk2nudata; fi
   if [ "$PRDDIR" != "$PRODUCT" ]; then
     echo " " >&2
     err_red
@@ -463,7 +465,7 @@ if [ "$CHECKOUT" == "true" -o "$CHECKOUT" == "ssh" ]; then
   # setup dk2nu $VERSION -f $FLAVOR -q $QUALIFIER
   # setup == source `$UPS_DIR/bin/ups setup <args>`
   #     'ups setup' creates a script that must be sourced
-  source `${UPS_DIR}/bin/ups setup dk2nu $VERSION -f $FLAVOR -q $QUALIFIER`
+  source `${UPS_DIR}/bin/ups setup $PRODUCT $VERSION -f $FLAVOR -q $QUALIFIER`
   cd $DK2NU_DIR/source
   echo "starting checkout, currently in:"
   echo "   `pwd`"
