@@ -10,6 +10,8 @@ fi
 doclean=no
 doconfig=no
 domake=no
+doinstall=no
+doclean2=no
 verbose=no
 doopt=no
 doextras=""
@@ -18,18 +20,21 @@ dolowlevel=no
 targets="all"
 compiler="gcc"
 dolhapdf5=no
-dolhapdf6=no
+dolhapdf6=yes
 pythiaMajor=6  # or 8
 
 dog4=no
 doincl=no
 skipbdm=no
 
+#=============== usage
 usage() {
   echo "Usage: ${whatami}              " >&2
-  echo "   -c:         clean               [$doclean]   " >&2
+  echo "   -c:         clean (before)      [$doclean]   " >&2
   echo "   -C:         configure           [$doconfig]  " >&2
   echo "   -m:         make genie          [$domake]    " >&2
+  echo "   -i:         install genie       [$doinstall] " >&2
+  echo "   -2:         clean (after)       [$doclean2]  " >&2
   echo "   -v:         verbose             [$doverbose] " >&2
   echo "   --opt       optimized           [$doopt]     " >&2
   echo "   --extras    other subpkg        [$doextras]  " >&2
@@ -46,10 +51,11 @@ usage() {
   return 1
 }
 
+#=============== command line arg parsing
 GSPLOAD_SAVE=$GSPLOAD
 here=`pwd`
 
-TEMP=`getopt -n ${whatami} -s bash -a --longoptions="help clean config make opt vle vhe no-vle no-vhe lowlevel extras:: targets: with-compiler: geant4:: enable-geant4:: incl:: enable-incl:: enable-inclxx:: enable-lhapdf5:: enable-lhapdf6:: pythia-major: disable-bdm" -o ?hcClmfesv -- "$@"`
+TEMP=`getopt -n ${whatami} -s bash -a --longoptions="help clean config make install clean2 opt vle vhe no-vle no-vhe lowlevel extras:: targets: with-compiler: geant4:: enable-geant4:: incl:: enable-incl:: enable-inclxx:: enable-lhapdf5:: enable-lhapdf6:: pythia-major: disable-bdm" -o ?hcClmi2fesv -- "$@"`
 
 if [ $? != 0 ] ; then
   echo "Usage: ${whatami} [-c] [-C] " >&2
@@ -67,6 +73,8 @@ while true; do
     -c | --clean    ) doclean=yes    ;;
     -C | --config   ) doconfig=yes   ;;
     -m | --make     ) domake=yes     ;;
+    -i | --install  ) doinstall=yes     ;;
+    -2 | --clean2   ) doclean2=yes     ;;
     -v              ) verbose=yes    ;;
     --opt           ) doopt=yes      ;;
 #    --vle           ) dovle=yes      ;;
@@ -82,7 +90,7 @@ while true; do
 # by getopt ... still need to remove it with a shift
     --extras        ) doextras="$2";
                       if [ "x${doextras}" == "x" ]; then
-                         doextras="test,masterclass,t2k,evtlib,"
+                         doextras="test,masterclass,t2k,event-library" #"evtlib,"
                       fi
                       shift
                       ;;
@@ -137,6 +145,7 @@ else
 fi
 
 echo doclean=${doclean} doconfig=${doconfig} domake=${domake}
+echo doinstall=${doinstall} doclean2=${doclean2}
 echo dolowlevel=${dolowlevel} compiler=${compiler}
 echo dog4=${dog4} doincl=${doincl}
 echo dolhapdf5=${dolhapdf5} dolhapdf6=${dolhapdf6}
@@ -151,6 +160,13 @@ export genie_rel=`basename $GENIE`
 
 echo "========= genie release: \"${genie_rel}\" "
 
+unset MAKEFILE MAKEFLAG MAKEFILES MAKEFLAGS
+if [ ! -d ${GENIE_REWEIGHT} ]; then
+  echo "no reweight directory ..."
+else
+  export GENIE_REWEIGHT_INSTALLATION_PATH=${GENIE_FQ_PATH}
+  echo export GENIE_REWEIGHT_INSTALLATION_PATH=${GENIE_FQ_PATH}
+fi
 
 if [ ! -d ${GENIE} ] ; then
   mkdir ${GENIE}
@@ -163,21 +179,23 @@ if [ "x${GSPLINE_DIR}" != "x" ] ; then
   fi
 fi
 
+
+#=============== clean (beforehand)
 if [[ "x${doclean}" == "xyes" ]] ; then
    cd $GENIE
    echo make clean genie
-   make distclean clean > ../do_make_clean_genie.log 2>&1
+   make distclean clean > do_clean_genie_before.log_save 2>&1
    if [ ! -d ${GENIE_REWEIGHT} ]; then
      echo "no reweight directory ..."
    else
      cd $GENIE_REWEIGHT
-     export GENIE_REWEIGHT_INSTALLATION_PATH=${GENIE_FQ_PATH}
      echo make clean reweight
-     make distclean clean > ../do_make_clean_reweight.log 2>&1
+     make distclean clean > do_clean_reweight_before.log_save 2>&1
    fi
    cd $GENIE
 fi
 
+#=============== configure
 config_status=0
 if [[ "x${doconfig}" == "xyes" ]] ; then
 #
@@ -321,14 +339,11 @@ export LOG4CPP_LIB=${LOG4CPP_FQ_DIR}/lib
 
    cd $GENIE
    echo ./configure $cfg
-   rm -f do_configure.log
-   echo ./configure $cfg > do_configure.log 2>&1
-   echo " =============" >> do_configure.log 2>&1
-   ./configure $cfg >> do_configure.log 2>&1
+   rm -f do_configure.log_save
+   echo ./configure $cfg > do_configure.log_save 2>&1
+   echo " =============" >> do_configure.log_save 2>&1
+   ./configure $cfg >> do_configure.log_save 2>&1
    config_status=$?
-fi
-
-if [[ "x${domake}" == "xyes" ]] ; then
 
   if [[ ${config_status} -ne 0 ]]; then
     echo -e "${OUTRED}skip make step as config failed${OUTNOCOL}"
@@ -336,41 +351,87 @@ if [[ "x${domake}" == "xyes" ]] ; then
     exit ${config_status}
   fi
 
-  #srt_setup --unsetup
-  unset MAKEFILE MAKEFLAG MAKEFILES MAKEFLAGS
+fi
+
+#=============== make
+make_status=0
+if [[ "x${domake}" == "xyes" ]] ; then
 
   cd $GENIE
-  make distclean > do_distclean.log 2>&1
-  echo "genie: make $targets"
-  make $targets > do_make.log 2>&1
-  makestatus=$?
-  echo "Generator \"make $targets\" completed with status $makestatus"
-  grep error do_make.log
-  if [ $makestatus -eq 0 ]; then
-    echo "genie: install"
-    make install > do_install.log 2>&1
-    installstatus=$?
-    echo "Genie \"make install\" completed with status ${installstatus}"
 
-    if [ ! -d ${GENIE_REWEIGHT} ]; then
-      echo "no reweight directory ..."
-    else
-      cd $GENIE_REWEIGHT
-      export GENIE_REWEIGHT_INSTALLATION_PATH=${GENIE_FQ_PATH}
-      make distclean > do_distclean.log 2>&1
-      echo "reweight: make"
-      make > do_make.log 2>&1
-      makestatus_rwt=$?
-      echo "Reweight \"make\" completed with status ${makestatus_rwt}"
-      grep error do_make.log
-      if [ ${makestatus_rwt} -eq 0 ]; then
-        echo "reweight: install"
-        make install > do_install.log 2>&1
-        installstatus_rwt=$?
-        echo "Reweight \"make install\" completed with status ${installstatus_rwt}"
-      fi # reweight
-    fi # makestatus for generator
+  echo "genie: make $targets"
+  make $targets > do_make.log_save 2>&1
+  make_status_gen=$?
+  echo "Generator \"make $targets\" completed with status $make_status_gen"
+  grep error do_make.log_save
+
+  if [ ! -d ${GENIE_REWEIGHT} ]; then
+    echo "no reweight directory ..."
+  else
+    cd $GENIE_REWEIGHT
+    export GENIE_REWEIGHT_INSTALLATION_PATH=${GENIE_FQ_PATH}
+
+    echo "reweight: make"
+    make > do_make.log_save 2>&1
+    make_status_rwt=$?
+    echo "Reweight \"make\" completed with status ${make_status_rwt}"
+    grep error do_make.log_save
   fi
+  let make_status=${make_status_gen}+${make_status_rwt}
+
+  if [[ ${make_status} -ne 0 ]]; then
+    echo -e "${OUTRED}skip install step as make failed${OUTNOCOL}"
+    echo -e "${OUTRED}skip install step as make failed${OUTNOCOL}" 1>&2
+    exit ${make_status}
+  fi
+
+fi
+
+#=============== install
+install_status=0
+if [[ "x${doinstall}" == "xyes" ]] ; then
+
+  cd $GENIE
+
+  echo "genie: install"
+  make distclean install > do_install.log_save 2>&1
+  isntall_status_gen=$?
+  echo "Generator \"install\" completed with status $install_status_gen"
+  grep error do_install.log_save
+
+  if [ ! -d ${GENIE_REWEIGHT} ]; then
+    echo "no reweight directory ..."
+  else
+    cd $GENIE_REWEIGHT
+    echo "reweight: install"
+    make distclean install > do_install.log_save 2>&1
+    install_status_rwt=$?
+    echo "Reweight \"install\" completed with status ${make_status_rwt}"
+    grep error do_install.log_save
+  fi
+  let make_status=${make_status_gen}+${make_status_rwt}
+
+  if [[ ${install_status} -ne 0 ]]; then
+    echo -e "${OUTRED}skip clean step as install failed${OUTNOCOL}"
+    echo -e "${OUTRED}skip clean step as install failed${OUTNOCOL}" 1>&2
+    exit ${make_status}
+  fi
+
+fi
+
+#=============== clean (after install)
+if [[ "x${doclean}" == "xyes" ]] ; then
+   cd $GENIE
+   echo make clean genie after
+   make clean > do_clean_genie_after_install.log_save 2>&1
+   if [ ! -d ${GENIE_REWEIGHT} ]; then
+     echo "no reweight directory ..."
+   else
+     cd $GENIE_REWEIGHT
+     echo make clean reweight after
+     make clean > do_clean_reweight_after_install.log_save 2>&1
+   fi
+   cd $GENIE
 fi
 
 #return 0
