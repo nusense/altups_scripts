@@ -39,6 +39,7 @@ Usage: ${b0} [flags] <version> <qualifier> <tag_or_rev>
   --gcc="<ups-setup-string>"                ["${gcc_ups_setup}"]
   --root="<ups-setup-string>"               ["${root_ups_setup}"]
   --pythia="<ups-setup-string>"             ["${pythia_ups_setup}"]
+  --pythia8="<ups-setup-string>"            ["${pythia8_ups_setup}"]
   --lhapdf="<ups-setup-string>"             ["${lhapdf_ups_setup}"]
   --libxml2="<ups-setup-string>"            ["${libxml2_ups_setup}"]
   --log4cpp="<ups-setup-string>"            ["${log4cpp_ups_setup}"]
@@ -65,6 +66,7 @@ Dependencies:
   gcc     ${gcc_ups_setup}
   root    ${root_ups_setup}
   pythia  ${pythia_ups_setup}
+  pythia8 ${pythia8_ups_setup}
   lhapdf  ${lhapdf_ups_setup}
   libxml2 ${libxml2_ups_setup}
   log4cpp ${log4cpp_ups_setup}
@@ -86,6 +88,7 @@ trim_setup()
 export gcc_ups_setup=`trim_setup GCC`
 export root_ups_setup=`trim_setup ROOT`
 export pythia_ups_setup=`trim_setup PYTHIA`
+export pythia8_ups_setup=`trim_setup PYTHIA8`
 export lhapdf_ups_setup=`trim_setup LHAPDF`
 export libxml2_ups_setup=`trim_setup LIBXML2`
 export log4cpp_ups_setup=`trim_setup LOG4CPP`
@@ -212,7 +215,7 @@ process_args() {
   TEMP=`getopt -n $b0 -s bash -a \
       --longoptions="help verbose test flavor: checkout:: user: \
                      qual-mismatch-ok show-config \
-                     gcc: root: pythia: lhapdf: libxml2: log4cpp: gsl: " \
+                     gcc: root: pythia: pythia8: lhapdf: libxml2: log4cpp: gsl: " \
       -o htvf -- "$@" 2> $opterr `
   getoptstat=$?
   eval set -- "${TEMP}"
@@ -264,6 +267,7 @@ process_args() {
       --gcc           ) gcc_ups_setup="$2"     ; shift ;;
       --root          ) root_ups_setup="$2"    ; shift ;;
       --pythia        ) pythia_ups_setup="$2"  ; shift ;;
+      --pythia8       ) pythia8_ups_setup="$2" ; shift ;;
       --lhapdf        ) lhapdf_ups_setup="$2"  ; shift ;;
       --libxml2       ) libxml2_ups_setup="$2" ; shift ;;
       --log4cpp       ) log4cpp_ups_setup="$2" ; shift ;;
@@ -483,6 +487,7 @@ Group:
      ${GCCTABLELINE}
      setupRequired( root    ${root_ups_setup} )
      setupRequired( pythia  ${pythia_ups_setup} )
+     setupRequired( pythia8 ${pythia8_ups_setup} )
      setupRequired( lhapdf  ${lhapdf_ups_setup} )
      setupRequired( libxml2 ${libxml2_ups_setup} )
      setupRequired( log4cpp ${log4cpp_ups_setup} )
