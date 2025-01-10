@@ -21,10 +21,11 @@ targets="all"
 compiler="gcc"
 dolhapdf5=no
 dolhapdf6=yes
-pythiaMajor=6  # or 8
+pythiaMajor=6  # or 8  -- 7 means both enbled
 
 dog4=no
 doincl=no
+doprof=no
 skipbdm=no
 
 #=============== usage
@@ -39,7 +40,7 @@ usage() {
   echo "   --opt       optimized           [$doopt]     " >&2
   echo "   --extras    other subpkg        [$doextras]  " >&2
   echo "                e.g. test,masterclass,t2k       " >&2
-  echo "   --lowlevel: lowlevel-mesg       [$dolowlevel]" >&2
+  echo "   --lowlevl: lowlevel-mesg       [$dolowlevel]" >&2
   echo "   --targets=<target>              [$targets]   " >&2
   echo "   --with-compiler: gcc/clang      [$compiler]  " >&2
   echo "   --enable-geant4:                [$dog4]      " >&2
@@ -48,6 +49,7 @@ usage() {
   echo "   --enable-lhapdf6                [$dolhapdf6] " >&2
   echo "   --pythia-major                  [$pythiaMajor] " >&2
   echo "   --disable-bdm                   [$skipbdm]   " >&2
+  echo "   --enable-professor              [$doprof]    " >&2
   return 1
 }
 
@@ -55,7 +57,7 @@ usage() {
 GSPLOAD_SAVE=$GSPLOAD
 here=`pwd`
 
-TEMP=`getopt -n ${whatami} -s bash -a --longoptions="help clean config make install clean2 opt vle vhe no-vle no-vhe lowlevel extras:: targets: with-compiler: geant4:: enable-geant4:: incl:: enable-incl:: enable-inclxx:: enable-lhapdf5:: enable-lhapdf6:: pythia-major: disable-bdm" -o ?hcClmi2fesv -- "$@"`
+TEMP=`getopt -n ${whatami} -s bash -a --longoptions="help clean config make install clean2 opt vle vhe no-vle no-vhe lowlevel extras:: targets: with-compiler: geant4:: enable-geant4:: incl:: enable-incl:: enable-inclxx:: enable-lhapdf5:: enable-lhapdf6:: pythia-major: disable-bdm enable-professor::" -o ?hcClmi2fesv -- "$@"`
 
 if [ $? != 0 ] ; then
   echo "Usage: ${whatami} [-c] [-C] " >&2
@@ -121,7 +123,8 @@ while true; do
                       shift
                       ;;
     --pythia-major ) pythiaMajor="$2"
-                     if [ $pythiaMajor -eq 6 -o $pythiaMajor -eq 8 ]; then
+                     if [ $pythiaMajor -ge 6 -a $pythiaMajor -le 8 ]; then
+                       # 6 = 6-only, 8 = 8-only, 7=both
                        echo "using major pythia version: $pythiaMajor"
                      else
                        echo -e "${OUTRED}major pythia version: $pythiaMajor ${OUTNOCOL}"
@@ -131,6 +134,13 @@ while true; do
                      shift
                      ;;
     --disable-bdm   ) skipbdm="yes" ;;
+    --enable-professor ) doprof="$2"
+                         if [ "x${doprof}" == "x" ]; then
+                           doprof=yes
+                         fi
+                         echo "enable-professor set doprof=${doprof}"
+                         shift
+                         ;;
     --              ) shift ;   break ;;
     *               ) echo "===> unknown arg '$1'"
   esac
@@ -151,6 +161,7 @@ echo dog4=${dog4} doincl=${doincl}
 echo dolhapdf5=${dolhapdf5} dolhapdf6=${dolhapdf6}
 echo pythiaMajor=${pythiaMajor}
 echo skipbdm=${skipbdm}
+echo doprof=${doprof}
 #echo dovle=${dovle}
 
 eval $ECHOCMD cd `dirname $GENIE`
@@ -200,13 +211,6 @@ config_status=0
 if [[ "x${doconfig}" == "xyes" ]] ; then
 #
 
-if [ $pythiaMajor -eq 6 ]; then
-  export PYTHIA6_DIR=${PYTHIA_FQ_DIR}
-fi
-if [ $pythiaMajor -eq 8 ]; then
-  export PYTHIA8_DIR=${PYTHIA_FQ_DIR}
-fi
-
 if [ "${dolhapdf5}" == "yes" -o "${dolhapdf6}" == "yes" ]; then
   export LHAPDF_LIB=${LHAPDF_FQ_DIR}/lib
   export LHAPDF_INC=${LHAPDF_FQ_DIR}/include
@@ -233,6 +237,9 @@ export LOG4CPP_LIB=${LOG4CPP_FQ_DIR}/lib
      cfg="$cfg --enable-lowlevel-mesg"
    else
      cfg="$cfg --disable-lowlevel-mesg"
+   fi
+   if [[ "x${doprof}" == "xyes" ]] ; then
+     cfg="$cfg --enable-professor2"
    fi
 #   if [[ "x${dovle}" == "xyes" ]] ; then
 #     cfg="$cfg --enable-vle-extension"
@@ -281,7 +288,11 @@ export LOG4CPP_LIB=${LOG4CPP_FQ_DIR}/lib
      cfg="$cfg --disable-lhapdf6"
    fi
 
-   if [ $pythiaMajor -eq 6 ]; then
+   if [ $pythiaMajor -eq 6 -o $pythiaMajor -eq 7 ]; then
+     export PYTHIA6_DIR=${PYTHIA_FQ_DIR}
+     if [ $pythiaMajor -eq 6 ]; then
+       cfg="$cfg --disable-pythia8"
+     fi
      cfg="$cfg --enable-pythia6"
      cfg="$cfg --with-pythia6-lib=$PYTHIA6_DIR/lib"
      cfg="$cfg --enable-gfortran"
@@ -289,7 +300,11 @@ export LOG4CPP_LIB=${LOG4CPP_FQ_DIR}/lib
 #whichgfdir=`dirname $whichgf`
 #     cfg="$cfg --with-gfortran-lib=$whichgfdir/../lib64"  # not lib
    fi
-   if [ $pythiaMajor -eq 8 ]; then
+   if [ $pythiaMajor -eq 8 -o $pythiaMajor -eq 7 ]; then
+     export PYTHIA8_DIR=${PYTHIA8_FQ_DIR}
+     if [ $pythiaMajor -eq 8 ]; then
+       cfg="$cfg --disable-pythia6"
+     fi
      cfg="$cfg --enable-pythia8"
      cfg="$cfg --with-pythia8-inc=$PYTHIA8_DIR/include"
      cfg="$cfg --with-pythia8-lib=$PYTHIA8_DIR/lib"
@@ -350,6 +365,13 @@ export LOG4CPP_LIB=${LOG4CPP_FQ_DIR}/lib
     echo -e "${OUTRED}skip make step as config failed${OUTNOCOL}" 1>&2
     exit ${config_status}
   fi
+
+  echo "----> grep -i pythia src/make/Make.config"
+  grep -i pythia src/make/Make.config
+  echo "----> make autogenerated-headers e.g. $GENIE/src/Framework/Conventions/GBuild.h"
+  cd $GENIE
+  make autogenerated-headers
+  cat $GENIE/src/Framework/Conventions/GBuild.h
 
 fi
 
@@ -420,7 +442,7 @@ if [[ "x${doinstall}" == "xyes" ]] ; then
 fi
 
 #=============== clean (after install)
-if [[ "x${doclean}" == "xyes" ]] ; then
+if [[ "x${doclean2}" == "xyes" ]] ; then
    cd $GENIE
    echo make clean genie after
    make clean > do_clean_genie_after_install.log_save 2>&1
