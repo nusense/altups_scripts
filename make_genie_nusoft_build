@@ -175,8 +175,8 @@ unset MAKEFILE MAKEFLAG MAKEFILES MAKEFLAGS
 if [ ! -d ${GENIE_REWEIGHT} ]; then
   echo "no reweight directory ..."
 else
-  export GENIE_REWEIGHT_INSTALLATION_PATH=${GENIE_FQ_PATH}
-  echo export GENIE_REWEIGHT_INSTALLATION_PATH=${GENIE_FQ_PATH}
+  export GENIE_REWEIGHT_INSTALLATION_PATH=${GENIE_FQ_DIR}
+  echo export GENIE_REWEIGHT_INSTALLATION_PATH=${GENIE_FQ_DIR}
 fi
 
 if [ ! -d ${GENIE} ] ; then
@@ -190,18 +190,32 @@ if [ "x${GSPLINE_DIR}" != "x" ] ; then
   fi
 fi
 
+#=============== need to distclean before building if install
+if [[ "x${doinstall}" == "xyes" ]] ; then
+   cd $GENIE
+   echo make distclean genie
+   make distclean > do_distclean_genie.log_save 2>&1
+   if [ ! -d ${GENIE_REWEIGHT} ]; then
+     echo "no reweight directory ..."
+   else
+     cd $GENIE_REWEIGHT
+     echo make distclean reweight
+     make distclean > do_distclean_reweight.log_save 2>&1
+   fi
+   cd $GENIE
+fi
 
 #=============== clean (beforehand)
 if [[ "x${doclean}" == "xyes" ]] ; then
    cd $GENIE
    echo make clean genie
-   make distclean clean > do_clean_genie_before.log_save 2>&1
+   make clean > do_clean_genie_before.log_save 2>&1
    if [ ! -d ${GENIE_REWEIGHT} ]; then
      echo "no reweight directory ..."
    else
      cd $GENIE_REWEIGHT
      echo make clean reweight
-     make distclean clean > do_clean_reweight_before.log_save 2>&1
+     make clean > do_clean_reweight_before.log_save 2>&1
    fi
    cd $GENIE
 fi
@@ -391,7 +405,7 @@ if [[ "x${domake}" == "xyes" ]] ; then
     echo "no reweight directory ..."
   else
     cd $GENIE_REWEIGHT
-    export GENIE_REWEIGHT_INSTALLATION_PATH=${GENIE_FQ_PATH}
+    export GENIE_REWEIGHT_INSTALLATION_PATH=${GENIE_FQ_DIR}
 
     echo "reweight: make"
     make > do_make.log_save 2>&1
@@ -416,7 +430,7 @@ if [[ "x${doinstall}" == "xyes" ]] ; then
   cd $GENIE
 
   echo "genie: install"
-  make distclean install > do_install.log_save 2>&1
+  make install > do_install.log_save 2>&1
   isntall_status_gen=$?
   echo "Generator \"install\" completed with status $install_status_gen"
   grep error do_install.log_save
@@ -426,7 +440,7 @@ if [[ "x${doinstall}" == "xyes" ]] ; then
   else
     cd $GENIE_REWEIGHT
     echo "reweight: install"
-    make distclean install > do_install.log_save 2>&1
+    make install > do_install.log_save 2>&1
     install_status_rwt=$?
     echo "Reweight \"install\" completed with status ${make_status_rwt}"
     grep error do_install.log_save
